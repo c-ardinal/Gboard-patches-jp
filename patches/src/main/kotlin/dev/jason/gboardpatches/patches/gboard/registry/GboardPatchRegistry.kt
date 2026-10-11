@@ -42,6 +42,8 @@ import dev.jason.gboardpatches.patches.gboard.features.customtheme.gboardCustomT
 import dev.jason.gboardpatches.patches.gboard.features.customtheme.gboardCustomThemeOfficialImportPatch
 import dev.jason.gboardpatches.patches.gboard.features.emojisize.gboardEmojiSizeFeatureMarkerPatch
 import dev.jason.gboardpatches.patches.gboard.features.emojisize.gboardEmojiSizeFlagValuePatch
+import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.gboardExtendedDictionaryFeatureMarkerPatch
+import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.gboardExtendedDictionaryGuardPatch
 import dev.jason.gboardpatches.patches.gboard.features.webclipboard.gboardWebClipboardAssetsPatch
 import dev.jason.gboardpatches.patches.gboard.features.webclipboard.gboardWebClipboardCapturePatch
 import dev.jason.gboardpatches.patches.gboard.features.webclipboard.gboardWebClipboardFeatureMarkerPatch
@@ -565,6 +567,23 @@ val gboardBackupRestorePatch = gboardPublicResourcePatch(
 }
 
 @Suppress("unused")
+val gboardExtendedDictionaryPatch = gboardPublicResourcePatch(
+    featureId = "extended_dictionary",
+    name = "Extended Dictionary",
+    description = "以 Gboard 個人字典格式批次匯入單字，並可只移除由此匯入的單字。\n" +
+        "Bulk import a word list in Gboard's personal dictionary format, and remove only the words it imported.",
+    default = true,
+) {
+    compatibleWith(COMPATIBILITY_GBOARD)
+
+    dependsOn(
+        gboardPatchesSettingsPatch,
+        gboardExtendedDictionaryFeatureMarkerPatch,
+        gboardExtendedDictionaryGuardPatch,
+    )
+}
+
+@Suppress("unused")
 val gboardSymbolsFooterOrderPatch = gboardPublicResourcePatch(
     featureId = "emojis_stickers_gifs_tab_order",
     name = "Emojis, stickers & GIFs Tab Order",
@@ -885,6 +904,7 @@ object GboardPublishedPatchCatalog {
         gboardCustomSymbolsPatch,
         gboardCustomTopRowSwipePatch,
         gboardBackupRestorePatch,
+        gboardExtendedDictionaryPatch,
         gboardDeveloperOptionsPatch,
         gboardSymbolsFooterOrderPatch,
         gboardClipboardEnhancementsPatch,

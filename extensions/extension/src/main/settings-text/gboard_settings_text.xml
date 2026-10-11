@@ -3230,4 +3230,124 @@
         <translation locale="en">Editing buttons settings unavailable. Reopen settings and try again.</translation>
         <translation locale="zh-Hant">編輯按鈕設定無法載入，請重新開啟設定再試一次。</translation>
     </string>
+    <string name="gboard_patches_extended_dictionary_title">
+        <translation locale="en">Extended Dictionary</translation>
+        <translation locale="zh-Hant">擴充字典</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_summary">
+        <translation locale="en">Import word lists into the Gboard personal dictionary</translation>
+        <translation locale="zh-Hant">將單字清單匯入 Gboard 個人字典</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_unsupported_summary">
+        <translation locale="en">The personal dictionary of this Gboard build is not supported. Import and removal are disabled.</translation>
+        <translation locale="zh-Hant">不支援此 Gboard 版本的個人字典，已停用匯入與移除。</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_section_title">
+        <translation locale="en">Word list</translation>
+        <translation locale="zh-Hant">單字清單</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_import_title">
+        <translation locale="en">Import word list</translation>
+        <translation locale="zh-Hant">匯入單字清單</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_import_summary">
+        <translation locale="en">Gboard dictionary file (.txt or .zip), up to %1$d words</translation>
+        <translation locale="zh-Hant">Gboard 字典檔（.txt 或 .zip），最多 %1$d 個單字</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_remove_title">
+        <translation locale="en">Remove imported words</translation>
+        <translation locale="zh-Hant">移除已匯入的單字</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_remove_summary">
+        <translation locale="en">Only words added by this feature are removed</translation>
+        <translation locale="zh-Hant">只會移除由此功能加入的單字</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_remove_confirm_title">
+        <translation locale="en">Remove imported words?</translation>
+        <translation locale="zh-Hant">要移除已匯入的單字嗎？</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_remove_confirm_message">
+        <translation locale="en">Words you added or edited yourself are kept.</translation>
+        <translation locale="zh-Hant">您自行加入或編輯過的單字會保留。</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_status_title">
+        <translation locale="en">Imported words</translation>
+        <translation locale="zh-Hant">已匯入的單字</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_status_summary">
+        <translation locale="en">%1$d words managed by this feature</translation>
+        <translation locale="zh-Hant">此功能管理 %1$d 個單字</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_status_unreadable">
+        <translation locale="en">The list of imported words cannot be read.</translation>
+        <translation locale="zh-Hant">無法讀取已匯入單字的清單。</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_import_done">
+        <translation locale="en">Imported %1$d words. Skipped %2$d existing, %3$d failed.</translation>
+        <translation locale="zh-Hant">已匯入 %1$d 個單字。略過 %2$d 個已存在，%3$d 個失敗。</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_import_rolled_back">
+        <translation locale="en">Import failed. Added words were rolled back.</translation>
+        <translation locale="zh-Hant">匯入失敗，已復原新增的單字。</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_import_rollback_incomplete">
+        <translation locale="en">Import failed. %1$d added words could not be rolled back.</translation>
+        <translation locale="zh-Hant">匯入失敗，有 %1$d 個新增的單字無法復原。</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_import_empty">
+        <translation locale="en">The file contains no words.</translation>
+        <translation locale="zh-Hant">檔案中沒有單字。</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_import_failed">
+        <translation locale="en">Import failed. No words were added.</translation>
+        <translation locale="zh-Hant">匯入失敗，未加入任何單字。</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_remove_done">
+        <translation locale="en">Removed %1$d words. Kept %2$d changed words, %3$d failed.</translation>
+        <translation locale="zh-Hant">已移除 %1$d 個單字。保留 %2$d 個已變更的單字，%3$d 個失敗。</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_remove_failed">
+        <translation locale="en">Removing imported words failed.</translation>
+        <translation locale="zh-Hant">移除已匯入的單字失敗。</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_error_encoding">
+        <translation locale="en">Line %1$d is not valid UTF-8.</translation>
+        <translation locale="zh-Hant">第 %1$d 行不是有效的 UTF-8。</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_error_header">
+        <translation locale="en">Line %1$d has an unsupported dictionary header.</translation>
+        <translation locale="zh-Hant">第 %1$d 行的字典標頭不受支援。</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_error_columns">
+        <translation locale="en">Line %1$d has the wrong number of columns.</translation>
+        <translation locale="zh-Hant">第 %1$d 行的欄位數量不正確。</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_error_language_tag">
+        <translation locale="en">Line %1$d has an invalid language tag.</translation>
+        <translation locale="zh-Hant">第 %1$d 行的語言標籤無效。</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_error_too_long">
+        <translation locale="en">Line %1$d has a column longer than %2$d characters.</translation>
+        <translation locale="zh-Hant">第 %1$d 行有欄位超過 %2$d 個字元。</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_error_too_many_lines">
+        <translation locale="en">The file has more than %1$d lines.</translation>
+        <translation locale="zh-Hant">檔案超過 %1$d 行。</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_error_line_too_long">
+        <translation locale="en">Line %1$d is longer than %2$d characters.</translation>
+        <translation locale="zh-Hant">第 %1$d 行超過 %2$d 個字元。</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_error_input_too_large">
+        <translation locale="en">The file is larger than %1$d MB after extraction.</translation>
+        <translation locale="zh-Hant">檔案解壓縮後超過 %1$d MB。</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_error_too_many">
+        <translation locale="en">The file has more than %1$d words.</translation>
+        <translation locale="zh-Hant">檔案超過 %1$d 個單字。</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_error_unreadable">
+        <translation locale="en">The file could not be read.</translation>
+        <translation locale="zh-Hant">無法讀取檔案。</translation>
+    </string>
 </settings-text>

@@ -10,6 +10,7 @@ import java.util.List;
 import dev.jason.gboardpatches.extension.backuprestore.GboardBackupRestoreSettingsFeature;
 import dev.jason.gboardpatches.extension.clipboard.GboardClipboardSettingsFeature;
 import dev.jason.gboardpatches.extension.developeroptions.GboardDeveloperOptionsSettingsFeature;
+import dev.jason.gboardpatches.extension.extendeddictionary.GboardExtendedDictionarySettingsFeature;
 import dev.jason.gboardpatches.extension.keyboard.GboardAiVoiceSettingsGroupFeature;
 import dev.jason.gboardpatches.extension.keyboard.GboardKeyboardLayoutSettingsGroupFeature;
 import dev.jason.gboardpatches.extension.keyboard.GboardKeyboardToolsSettingsGroupFeature;
@@ -31,6 +32,7 @@ public final class GboardPatchesSettingsFeatureRegistry {
         addIfAvailable(context, features, new GboardClipboardSettingsFeature());
         addIfAvailable(context, features, new GboardLanFtpSettingsFeature(context));
         addIfAvailable(context, features, new GboardSettingsHomepageSettingsFeature());
+        addIfAvailable(context, features, new GboardExtendedDictionarySettingsFeature(context));
         addIfAvailable(context, features, new GboardBackupRestoreSettingsFeature(context));
         addIfAvailable(context, features, new GboardDeveloperOptionsSettingsFeature(context));
         return Collections.unmodifiableList(features);
