@@ -1,12 +1,25 @@
 package dev.jason.gboardpatches.extension.extendeddictionary;
 
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 /** Access to Gboard personal dictionary rows; failures surface as runtime exceptions. */
 interface PersonalDictionaryGateway {
     boolean contains(String word, String shortcut, String localeTag);
 
-    long insert(String word, String shortcut, String localeTag, String posTag);
-
-    void delete(long id);
-
     boolean exists(long id, String word, String shortcut, String localeTag);
+
+    /**
+     * Inserts every entry in one transaction and returns their row ids in order. Nothing is
+     * written when it throws; cancellation surfaces as a CancellationException.
+     */
+    long[] insertAll(List<ManagedEntryStore.Entry> entries,
+            ExtendedDictionaryImporter.Progress progress, AtomicBoolean cancel);
+
+    /** Deletes the given rows (and their POS rows) in one transaction. */
+    void deleteAll(List<ManagedEntryStore.Entry> entries,
+            ExtendedDictionaryImporter.Progress progress);
+
+    /** The language tag exactly as Gboard stores it in the locale column. */
+    String normalizedTag(String localeTag);
 }

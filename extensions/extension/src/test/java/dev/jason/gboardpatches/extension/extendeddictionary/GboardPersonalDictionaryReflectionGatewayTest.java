@@ -4,11 +4,14 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import android.content.Context;
 import android.database.Cursor;
-import android.database.MatrixCursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteOpenHelper;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -16,17 +19,130 @@ import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @RunWith(RobolectricTestRunner.class)
 public final class GboardPersonalDictionaryReflectionGatewayTest {
+    private static final String POS_TABLE = "ja_ext";
+    private static final String NOUN = ExtendedDictionaryImporter.JAPANESE_DEFAULT_POS_TAG;
+
     private Context context;
+    private SQLiteOpenHelper helper;
+    private AtomicInteger notifications;
+    private GboardPersonalDictionaryReflectionGateway gateway;
 
     @Before
     public void setUp() {
         context = RuntimeEnvironment.getApplication();
-        FakeDatabase.reset();
+        helper = new PersonalDictionaryHelper(context, true);
+        notifications = new AtomicInteger();
+        gateway = new GboardPersonalDictionaryReflectionGateway(helper, POS_TABLE,
+                notifications::incrementAndGet, tag -> tag);
+    }
+
+    @Test
+    public void insertAllWritesEntriesAndPosRowsOnlyForJapaneseAndNotifiesOnce() {
+        long userId = userRow("Mine", "m", "en-US");
+
+        long[] ids = gateway.insertAll(Arrays.asList(
+                entry("構築", "こう", "ja-JP", NOUN),
+                entry("On my way!", "omw", "en-US", ""),
+                entry("犬", "いぬ", "ja-JP", "")), noProgress(), new AtomicBoolean());
+
+        assertEquals(3, ids.length);
+        assertEquals(4, count("entry"));
+        assertEquals(1, count(POS_TABLE));
+        assertEquals(NOUN, posTag(ids[0]));
+        assertEquals(1, notifications.get());
+        assertTrue(gateway.exists(ids[1], "On my way!", "omw", "en-US"));
+        assertTrue(gateway.contains("Mine", "m", "en-US"));
+        assertFalse(gateway.exists(userId, "On my way!", "omw", "en-US"));
+    }
+
+    @Test
+    public void insertAllHandlesAFullSizeImportInOneTransaction() {
+        long[] ids = gateway.insertAll(rows(WordListParser.MAX_ROWS_PER_IMPORT), noProgress(),
+                new AtomicBoolean());
+
+        assertEquals(WordListParser.MAX_ROWS_PER_IMPORT, ids.length);
+        assertEquals(WordListParser.MAX_ROWS_PER_IMPORT, count("entry"));
+        assertEquals(1, notifications.get());
+    }
+
+    @Test
+    public void orphanPosRowUnderAReusedRowidIsReplacedInsteadOfFailingTheImport() {
+        insertPos(1L, "人名");
+
+        long[] ids = gateway.insertAll(rows(1), noProgress(), new AtomicBoolean());
+
+        assertEquals(1L, ids[0]);
+        assertEquals(1, count(POS_TABLE));
+        assertEquals(NOUN, posTag(1L));
+        assertEquals(1, notifications.get());
+    }
+
+    @Test
+    public void cancellingMidwayRollsBackEveryRowAndDoesNotNotify() {
+        userRow("Mine", "m", "en-US");
+        AtomicBoolean cancel = new AtomicBoolean();
+
+        assertThrows(CancellationException.class, () -> gateway.insertAll(
+                rows(10), (done, total) -> cancel.set(done == 3), cancel));
+
+        assertEquals(1, count("entry"));
+        assertEquals(0, count(POS_TABLE));
+        assertEquals(0, notifications.get());
+    }
+
+    @Test
+    public void failureMidwayRollsBackEveryRowAndDoesNotNotify() {
+        try {
+            gateway.insertAll(rows(10), (done, total) -> {
+                if (done == 5) {
+                    throw new IllegalStateException("simulated failure");
+                }
+            }, new AtomicBoolean());
+            fail("Expected the batch to fail");
+        } catch (IllegalStateException expected) {
+            assertEquals(0, count("entry"));
+            assertEquals(0, count(POS_TABLE));
+            assertEquals(0, notifications.get());
+        }
+    }
+
+    @Test
+    public void deleteAllRemovesOnlyGivenRowsWithTheirPosRows() {
+        long userId = userRow("Mine", "m", "ja-JP");
+        insertPos(userId, NOUN);
+        long[] ids = gateway.insertAll(rows(3), noProgress(), new AtomicBoolean());
+        notifications.set(0);
+
+        gateway.deleteAll(Collections.singletonList(
+                new ManagedEntryStore.Entry(ids[1], "w1", "s1", "ja-JP", NOUN)), noProgress());
+
+        assertEquals(3, count("entry"));
+        assertEquals(3, count(POS_TABLE));
+        assertNull(posTag(ids[1]));
+        assertEquals(NOUN, posTag(userId));
+        assertFalse(gateway.exists(ids[1], "w1", "s1", "ja-JP"));
+        assertTrue(gateway.exists(ids[0], "w0", "s0", "ja-JP"));
+        assertEquals(1, notifications.get());
+    }
+
+    @Test
+    public void schemaCheckFailsClosedWhenThePosTableIsMissing() {
+        assertTrue(gateway.hasExpectedSchema());
+        GboardPersonalDictionaryReflectionGateway withoutPos =
+                new GboardPersonalDictionaryReflectionGateway(
+                        new PersonalDictionaryHelper(context, false), POS_TABLE, () -> {
+                        }, tag -> tag);
+        assertFalse(withoutPos.hasExpectedSchema());
     }
 
     @Test
@@ -37,45 +153,103 @@ public final class GboardPersonalDictionaryReflectionGatewayTest {
         assertFalse(GboardPersonalDictionaryReflectionGateway.isSupported(loader));
         assertNull(GboardPersonalDictionaryReflectionGateway.open(context, loader));
         assertFalse(GboardPersonalDictionaryReflectionGateway.isSupported(null));
+        assertNull(GboardPersonalDictionaryReflectionGateway.resolve(getClass().getClassLoader(),
+                FakeDatabase.class.getName(), WrongBase.class.getName(),
+                FakeTag.class.getName()));
     }
 
     @Test
-    public void preflightRejectsMismatchedSignatures() {
-        assertNull(resolve(WrongDatabase.class));
-    }
-
-    @Test
-    public void gatewayUsesGboardApiAndVerifiesRowsByContent() {
-        GboardPersonalDictionaryReflectionGateway.Api api = resolve(FakeDatabase.class);
+    public void reflectionPathUsesTheHelperFieldPosTableNameAndNotifier() {
+        GboardPersonalDictionaryReflectionGateway.Api api =
+                GboardPersonalDictionaryReflectionGateway.resolve(getClass().getClassLoader(),
+                        FakeDatabase.class.getName(), FakeBase.class.getName(),
+                        FakeTag.class.getName());
         assertNotNull(api);
-        long userId = FakeDatabase.put("Mine", "m", "en-US");
+        FakeBase.notified = 0;
 
-        GboardPersonalDictionaryReflectionGateway gateway =
+        GboardPersonalDictionaryReflectionGateway opened =
                 GboardPersonalDictionaryReflectionGateway.open(context, api);
-        assertNotNull(gateway);
-        assertTrue(gateway.contains("Mine", "m", "en-US"));
-        assertFalse(gateway.contains("Mine", "m", "en-GB"));
+        assertNotNull(opened);
+        long[] ids = opened.insertAll(Collections.singletonList(
+                entry("犬", "いぬ", "ja-jp", NOUN)), noProgress(), new AtomicBoolean());
 
-        long id = gateway.insert("Word", "w", "ja-JP", "pos");
-        assertTrue(id > 0L);
-        assertEquals("pos", FakeDatabase.lastPosTag);
-        assertTrue(gateway.contains("Word", "w", "ja-JP"));
-        assertTrue(gateway.exists(id, "Word", "w", "ja-JP"));
-        assertFalse(gateway.exists(userId, "Word", "w", "ja-JP"));
-        assertEquals(-1L, gateway.insert("Word", "w", "ja-JP", "pos"));
-
-        gateway.delete(id);
-        assertFalse(FakeDatabase.ROWS.containsKey(id));
-        assertFalse(gateway.exists(id, "Word", "w", "ja-JP"));
-        assertTrue(FakeDatabase.ROWS.containsKey(userId));
-        gateway.close();
-        assertTrue(FakeDatabase.closed);
+        assertEquals(1, FakeBase.notified);
+        assertTrue(opened.exists(ids[0], "犬", "いぬ", "ja-jp"));
+        opened.close();
     }
 
-    private static GboardPersonalDictionaryReflectionGateway.Api resolve(Class<?> database) {
-        return GboardPersonalDictionaryReflectionGateway.resolve(
-                GboardPersonalDictionaryReflectionGatewayTest.class.getClassLoader(),
-                database.getName(), FakeEntry.class.getName(), FakeTag.class.getName());
+    private static ExtendedDictionaryImporter.Progress noProgress() {
+        return (done, total) -> {
+        };
+    }
+
+    private static ManagedEntryStore.Entry entry(String word, String shortcut, String tag,
+            String pos) {
+        return new ManagedEntryStore.Entry(-1L, word, shortcut, tag, pos);
+    }
+
+    private static List<ManagedEntryStore.Entry> rows(int count) {
+        List<ManagedEntryStore.Entry> rows = new ArrayList<>();
+        for (int index = 0; index < count; index++) {
+            rows.add(entry("w" + index, "s" + index, "ja-JP", NOUN));
+        }
+        return rows;
+    }
+
+    private long userRow(String word, String shortcut, String tag) {
+        SQLiteDatabase db = helper.getWritableDatabase();
+        db.execSQL("INSERT INTO entry(word, shortcut, locale) VALUES (?, ?, ?)",
+                new Object[] {word, shortcut, tag});
+        try (Cursor cursor = db.rawQuery("SELECT last_insert_rowid()", null)) {
+            cursor.moveToFirst();
+            return cursor.getLong(0);
+        }
+    }
+
+    private void insertPos(long id, String pos) {
+        helper.getWritableDatabase().execSQL(
+                "INSERT INTO " + POS_TABLE + "(_id, pos_tag) VALUES (?, ?)",
+                new Object[] {id, pos});
+    }
+
+    private int count(String table) {
+        try (Cursor cursor = helper.getReadableDatabase()
+                .rawQuery("SELECT COUNT(*) FROM " + table, null)) {
+            cursor.moveToFirst();
+            return cursor.getInt(0);
+        }
+    }
+
+    private String posTag(long id) {
+        try (Cursor cursor = helper.getReadableDatabase().rawQuery(
+                "SELECT pos_tag FROM " + POS_TABLE + " WHERE _id = ?",
+                new String[] {String.valueOf(id)})) {
+            return cursor.moveToFirst() ? cursor.getString(0) : null;
+        }
+    }
+
+    /** Same schema as Gboard 18.0.3 qcd (PersonalDictionary.db version 2), kept in memory. */
+    static final class PersonalDictionaryHelper extends SQLiteOpenHelper {
+        private final boolean withPosTable;
+
+        PersonalDictionaryHelper(Context context, boolean withPosTable) {
+            super(context, null, null, 2);
+            this.withPosTable = withPosTable;
+        }
+
+        @Override
+        public void onCreate(SQLiteDatabase db) {
+            db.execSQL("CREATE TABLE entry(_id INTEGER PRIMARY KEY, word TEXT, shortcut TEXT,"
+                    + "locale TEXT)");
+            if (withPosTable) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS " + POS_TABLE
+                        + "(_id INTEGER PRIMARY KEY, pos_tag TEXT)");
+            }
+        }
+
+        @Override
+        public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        }
     }
 
     public static final class FakeTag {
@@ -86,7 +260,7 @@ public final class GboardPersonalDictionaryReflectionGatewayTest {
         }
 
         public static FakeTag g(String tag) {
-            return new FakeTag(tag == null ? "" : tag);
+            return new FakeTag("ja-jp".equals(tag) ? "ja-JP" : tag);
         }
 
         @Override
@@ -95,87 +269,31 @@ public final class GboardPersonalDictionaryReflectionGatewayTest {
         }
     }
 
-    public static final class FakeEntry {
-        final String word;
-        final String shortcut;
-        final FakeTag tag;
-        final String posTag;
+    public abstract static class FakeBase {
+        protected static final String a = POS_TABLE;
+        static int notified;
+        protected final SQLiteOpenHelper b;
 
-        public FakeEntry(long id, String word, String shortcut, FakeTag tag, String posTag) {
-            this.word = word;
-            this.shortcut = shortcut;
-            this.tag = tag;
-            this.posTag = posTag;
+        protected FakeBase(SQLiteOpenHelper helper) {
+            this.b = helper;
+        }
+
+        static void f() {
+            notified++;
         }
     }
 
-    public static final class FakeDatabase implements AutoCloseable {
-        static final Map<Long, String[]> ROWS = new LinkedHashMap<>();
-        static long nextId;
-        static String lastPosTag;
-        static boolean closed;
-
+    public static final class FakeDatabase extends FakeBase {
         public FakeDatabase(Context context) {
-        }
-
-        static void reset() {
-            ROWS.clear();
-            nextId = 1L;
-            lastPosTag = null;
-            closed = false;
-        }
-
-        static long put(String word, String shortcut, String tag) {
-            long id = nextId++;
-            ROWS.put(id, new String[] {word, shortcut, tag});
-            return id;
-        }
-
-        public long a(FakeEntry entry) {
-            lastPosTag = entry.posTag;
-            for (String[] row : ROWS.values()) {
-                if (row[0].equals(entry.word) && row[1].equals(entry.shortcut)
-                        && row[2].equals(entry.tag.toString())) {
-                    return -1L;
-                }
-            }
-            return put(entry.word, entry.shortcut, entry.tag.toString());
-        }
-
-        public Cursor c() {
-            MatrixCursor cursor = new MatrixCursor(
-                    new String[] {"_id", "word", "shortcut", "locale", "pos_tag"});
-            ROWS.forEach((id, row) -> cursor.addRow(new Object[] {id, row[0], row[1], row[2], ""}));
-            return cursor;
-        }
-
-        public void e(long id) {
-            ROWS.remove(id);
-        }
-
-        @Override
-        public void close() {
-            closed = true;
+            super(new PersonalDictionaryHelper(context, true));
         }
     }
 
-    public static final class WrongDatabase implements AutoCloseable {
-        public WrongDatabase(Context context) {
-        }
+    public abstract static class WrongBase {
+        protected static final String a = POS_TABLE;
+        protected final Object b = null;
 
-        public int a(FakeEntry entry) {
-            return 0;
-        }
-
-        public Cursor c() {
-            return null;
-        }
-
-        public void e(long id) {
-        }
-
-        @Override
-        public void close() {
+        static void f() {
         }
     }
 }

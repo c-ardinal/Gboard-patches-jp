@@ -1,7 +1,11 @@
 package dev.jason.gboardpatches.extension.extendeddictionary;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Adds rows without adopting existing ones, and removes only rows that still match. */
 final class ExtendedDictionaryImporter {
@@ -15,14 +19,21 @@ final class ExtendedDictionaryImporter {
         final int failed;
         final boolean rolledBack;
         final int rollbackLeftovers;
+        final boolean cancelled;
 
         ImportResult(int inserted, int skippedExisting, int failed, boolean rolledBack,
                 int rollbackLeftovers) {
+            this(inserted, skippedExisting, failed, rolledBack, rollbackLeftovers, false);
+        }
+
+        ImportResult(int inserted, int skippedExisting, int failed, boolean rolledBack,
+                int rollbackLeftovers, boolean cancelled) {
             this.inserted = inserted;
             this.skippedExisting = skippedExisting;
             this.failed = failed;
             this.rolledBack = rolledBack;
             this.rollbackLeftovers = rollbackLeftovers;
+            this.cancelled = cancelled;
         }
     }
 
@@ -38,6 +49,35 @@ final class ExtendedDictionaryImporter {
         }
     }
 
+    interface Progress {
+        void onProgress(int done, int total);
+    }
+
+    /** Passes on every PROGRESS_ROW_STEP rows, after PROGRESS_INTERVAL_NANOS, or at the end. */
+    static final class ProgressThrottle implements Progress {
+        static final int PROGRESS_ROW_STEP = 250;
+        static final long PROGRESS_INTERVAL_NANOS = 500_000_000L;
+
+        private final Progress progress;
+        private int lastDone;
+        private long lastNanos = System.nanoTime();
+
+        ProgressThrottle(Progress progress) {
+            this.progress = progress;
+        }
+
+        @Override
+        public void onProgress(int done, int total) {
+            long now = System.nanoTime();
+            if (done == total || done - lastDone >= PROGRESS_ROW_STEP
+                    || (done > lastDone && now - lastNanos >= PROGRESS_INTERVAL_NANOS)) {
+                lastDone = done;
+                lastNanos = now;
+                progress.onProgress(done, total);
+            }
+        }
+    }
+
     private ExtendedDictionaryImporter() {
     }
 
@@ -50,25 +90,46 @@ final class ExtendedDictionaryImporter {
 
     static ImportResult importRows(PersonalDictionaryGateway gateway, ManagedEntryStore store,
             List<WordListParser.Row> rows) {
+        return importRows(gateway, store, rows, (done, total) -> {
+        }, new AtomicBoolean());
+    }
+
+    static ImportResult importRows(PersonalDictionaryGateway gateway, ManagedEntryStore store,
+            List<WordListParser.Row> rows, Progress progress, AtomicBoolean cancel) {
         List<ManagedEntryStore.Entry> existing = store.load();
-        List<ManagedEntryStore.Entry> inserted = new ArrayList<>();
+        List<ManagedEntryStore.Entry> pending = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
         int skipped = 0;
-        int failed = 0;
-        try {
-            for (WordListParser.Row row : rows) {
-                if (gateway.contains(row.word, row.shortcut, row.localeTag)) {
-                    skipped++;
-                    continue;
-                }
-                String posTag = posTagFor(row);
-                long id = gateway.insert(row.word, row.shortcut, row.localeTag, posTag);
-                if (id > 0L) {
-                    inserted.add(new ManagedEntryStore.Entry(
-                            id, row.word, row.shortcut, row.localeTag, posTag));
-                } else {
-                    failed++;
-                }
+        for (WordListParser.Row row : rows) {
+            String key = row.word + '\u0000' + row.shortcut + '\u0000'
+                    + gateway.normalizedTag(row.localeTag);
+            if (!seen.add(key) || gateway.contains(row.word, row.shortcut, row.localeTag)) {
+                skipped++;
+                continue;
             }
+            pending.add(new ManagedEntryStore.Entry(
+                    -1L, row.word, row.shortcut, row.localeTag, posTagFor(row)));
+        }
+        progress.onProgress(0, pending.size());
+        if (pending.isEmpty()) {
+            return new ImportResult(0, skipped, 0, false, 0);
+        }
+        long[] ids;
+        try {
+            ids = gateway.insertAll(pending, new ProgressThrottle(progress), cancel);
+        } catch (CancellationException cancelled) {
+            return new ImportResult(0, skipped, 0, false, 0, true);
+        } catch (RuntimeException failure) {
+            return new ImportResult(0, skipped, 0, true, 0);
+        }
+        List<ManagedEntryStore.Entry> inserted = new ArrayList<>(pending.size());
+        for (int index = 0; index < pending.size(); index++) {
+            ManagedEntryStore.Entry entry = pending.get(index);
+            inserted.add(new ManagedEntryStore.Entry(ids[index], entry.word, entry.shortcut,
+                    entry.localeTag, entry.posTag));
+        }
+        try {
+            int failed = 0;
             List<ManagedEntryStore.Entry> verified = new ArrayList<>(existing);
             for (ManagedEntryStore.Entry entry : inserted) {
                 if (matches(gateway, entry)) {
@@ -81,19 +142,24 @@ final class ExtendedDictionaryImporter {
             return new ImportResult(verified.size() - existing.size(), skipped, failed,
                     false, 0);
         } catch (RuntimeException failure) {
-            return new ImportResult(0, skipped, failed, true, rollBack(gateway, inserted));
+            return new ImportResult(0, skipped, 0, true, rollBack(gateway, inserted));
         }
     }
 
     static RemoveResult removeAll(PersonalDictionaryGateway gateway, ManagedEntryStore store) {
+        return removeAll(gateway, store, (done, total) -> {
+        });
+    }
+
+    static RemoveResult removeAll(PersonalDictionaryGateway gateway, ManagedEntryStore store,
+            Progress progress) {
         List<ManagedEntryStore.Entry> remaining = new ArrayList<>();
-        int deleted = 0;
+        List<ManagedEntryStore.Entry> matching = new ArrayList<>();
         int forgotten = 0;
         for (ManagedEntryStore.Entry entry : store.load()) {
             try {
                 if (matches(gateway, entry)) {
-                    gateway.delete(entry.id);
-                    deleted++;
+                    matching.add(entry);
                 } else {
                     forgotten++;
                 }
@@ -101,23 +167,35 @@ final class ExtendedDictionaryImporter {
                 remaining.add(entry);
             }
         }
+        int deleted = 0;
+        progress.onProgress(0, matching.size());
+        try {
+            if (!matching.isEmpty()) {
+                gateway.deleteAll(matching, new ProgressThrottle(progress));
+            }
+            deleted = matching.size();
+        } catch (RuntimeException failure) {
+            remaining.addAll(matching);
+        }
         store.save(remaining);
         return new RemoveResult(deleted, forgotten, remaining.size());
     }
 
     private static int rollBack(PersonalDictionaryGateway gateway,
             List<ManagedEntryStore.Entry> inserted) {
-        int leftovers = 0;
-        for (ManagedEntryStore.Entry entry : inserted) {
-            try {
+        List<ManagedEntryStore.Entry> matching = new ArrayList<>();
+        try {
+            for (ManagedEntryStore.Entry entry : inserted) {
                 if (matches(gateway, entry)) {
-                    gateway.delete(entry.id);
+                    matching.add(entry);
                 }
-            } catch (RuntimeException failure) {
-                leftovers++;
             }
+            gateway.deleteAll(matching, (done, total) -> {
+            });
+            return 0;
+        } catch (RuntimeException failure) {
+            return inserted.size();
         }
-        return leftovers;
     }
 
     private static boolean matches(PersonalDictionaryGateway gateway,

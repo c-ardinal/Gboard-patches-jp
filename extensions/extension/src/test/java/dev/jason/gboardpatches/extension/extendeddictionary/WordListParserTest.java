@@ -87,6 +87,8 @@ public final class WordListParserTest {
 
     @Test
     public void enforcesFieldLengthAndRowCap() throws Exception {
+        assertEquals(50_000, WordListParser.MAX_ROWS_PER_IMPORT);
+        assertEquals(60_000, WordListParser.MAX_LINES);
         String maxWord = "w".repeat(WordListParser.MAX_FIELD_LENGTH);
         assertEquals(1, parse("s\t" + maxWord + "\ten\n").size());
         assertError("s\t" + maxWord + "w\ten\n", WordListParser.Error.FIELD_TOO_LONG, 1);

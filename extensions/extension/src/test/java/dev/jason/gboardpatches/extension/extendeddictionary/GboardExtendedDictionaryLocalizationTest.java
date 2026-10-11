@@ -2,24 +2,35 @@ package dev.jason.gboardpatches.extension.extendeddictionary;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.robolectric.Shadows.shadowOf;
 
+import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.Application;
 import android.content.Context;
 import android.content.res.Configuration;
+import android.os.Looper;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
+import org.robolectric.android.controller.ActivityController;
+import org.robolectric.shadows.ShadowDialog;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -73,6 +84,95 @@ public final class GboardExtendedDictionaryLocalizationTest {
                 "a\tA\n".getBytes(StandardCharsets.UTF_8)));
         assertEquals("The file contains no words.",
                 feature.importDocument(english, new byte[0]));
+    }
+
+    @Test
+    public void remainingTimeIsUnknownUntilTwoSamplesThenExtrapolated() {
+        Context english = localized(Locale.ENGLISH);
+        Context chinese = localized(Locale.forLanguageTag("zh-Hant"));
+        long tenSeconds = 10_000_000_000L;
+
+        assertEquals(-1L, ExtendedDictionaryProgressDialog.remainingSeconds(tenSeconds, 0, 100, 0));
+        assertEquals(-1L, ExtendedDictionaryProgressDialog.remainingSeconds(tenSeconds, 25, 100, 1));
+        assertEquals(30L, ExtendedDictionaryProgressDialog.remainingSeconds(tenSeconds, 25, 100, 2));
+        assertEquals(0L, ExtendedDictionaryProgressDialog.remainingSeconds(tenSeconds, 100, 100, 5));
+        assertEquals(ExtendedDictionaryProgressDialog.UNKNOWN_REMAINING,
+                ExtendedDictionaryProgressDialog.remainingText(english, -1L));
+        assertEquals("About 30 s remaining",
+                ExtendedDictionaryProgressDialog.remainingText(english, 30L));
+        assertTrue(HAN.matcher(
+                ExtendedDictionaryProgressDialog.remainingText(chinese, 30L)).find());
+        assertEquals("250 / 1000", ExtendedDictionaryProgressDialog.countText(250, 1000));
+    }
+
+    @Test
+    public void progressDialogIsModalCancelsTheJobAndClosesWhenItFinishes() {
+        Activity activity = Robolectric.buildActivity(Activity.class).setup().get();
+        ExtendedDictionaryProgressDialog.Job job = new ExtendedDictionaryProgressDialog.Job(
+                R.string.gboard_patches_extended_dictionary_progress_import_title, true);
+        job.onProgress(0, 1000);
+        boolean[] dismissed = {false};
+
+        assertTrue(ExtendedDictionaryProgressDialog.create(activity, job)
+                .show(() -> dismissed[0] = true));
+        AlertDialog dialog = (AlertDialog) ShadowDialog.getLatestDialog();
+        assertTrue(dialog.isShowing());
+        assertFalse(shadowOf(dialog).isCancelable());
+
+        job.onProgress(250, 1000);
+        job.render();
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).performClick();
+        assertTrue(job.cancel.get());
+        assertTrue(dialog.isShowing());
+
+        job.finished = true;
+        job.render();
+        shadowOf(Looper.getMainLooper()).idle();
+        assertFalse(dialog.isShowing());
+        assertTrue(dismissed[0]);
+        assertNull(job.view);
+    }
+
+    @Test
+    public void destroyingTheActivityMidJobNeitherCrashesNorLeaksTheJob() throws Exception {
+        ActivityController<Activity> controller =
+                Robolectric.buildActivity(Activity.class).setup();
+        Activity activity = controller.get();
+        Context application = activity.getApplicationContext();
+        clearStore(application);
+        CountDownLatch release = new CountDownLatch(1);
+        ExtendedDictionaryProgressDialog.Job job = new ExtendedDictionaryProgressDialog.Job(
+                R.string.gboard_patches_extended_dictionary_progress_import_title, true);
+
+        GboardExtendedDictionarySettingsFeature.runInBackground(new TestHost(activity), job,
+                "failed", (progress, cancel) -> {
+                    progress.onProgress(1, 2);
+                    try {
+                        assertTrue(release.await(10, TimeUnit.SECONDS));
+                    } catch (InterruptedException interrupted) {
+                        throw new IllegalStateException(interrupted);
+                    }
+                    ManagedEntryStore.open(application).save(Collections.singletonList(
+                            new ManagedEntryStore.Entry(1L, "A", "a", "en-US", "")));
+                    return "done";
+                });
+        // TestHost ignores submitted intents, so attach the dialog as the Activity would.
+        assertTrue(ExtendedDictionaryProgressDialog.create(activity, job).show(() -> {
+        }));
+        shadowOf(Looper.getMainLooper()).idle();
+        controller.pause().stop().destroy();
+        release.countDown();
+        for (int attempt = 0; attempt < 1000
+                && GboardExtendedDictionarySettingsFeature.currentJob() != null; attempt++) {
+            Thread.sleep(10);
+        }
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertNull(GboardExtendedDictionarySettingsFeature.currentJob());
+        assertTrue(job.finished);
+        assertNull(job.view);
+        assertNull(job.attachedHost.get());
+        assertEquals(1, ManagedEntryStore.open(application).load().size());
     }
 
     @Test

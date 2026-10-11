@@ -3278,6 +3278,26 @@
         <translation locale="en">%1$d words managed by this feature</translation>
         <translation locale="zh-Hant">此功能管理 %1$d 個單字</translation>
     </string>
+    <string name="gboard_patches_extended_dictionary_progress_import_title">
+        <translation locale="en">Importing words</translation>
+        <translation locale="zh-Hant">正在匯入單字</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_progress_remove_title">
+        <translation locale="en">Removing imported words</translation>
+        <translation locale="zh-Hant">正在移除已匯入的單字</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_progress_remaining">
+        <translation locale="en">About %1$d s remaining</translation>
+        <translation locale="zh-Hant">約剩 %1$d 秒</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_progress_cancelling">
+        <translation locale="en">Cancelling…</translation>
+        <translation locale="zh-Hant">正在取消…</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_import_cancelled">
+        <translation locale="en">Import cancelled. No words were added.</translation>
+        <translation locale="zh-Hant">已取消匯入，未加入任何單字。</translation>
+    </string>
     <string name="gboard_patches_extended_dictionary_status_unreadable">
         <translation locale="en">The list of imported words cannot be read.</translation>
         <translation locale="zh-Hant">無法讀取已匯入單字的清單。</translation>

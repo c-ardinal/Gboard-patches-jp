@@ -10,6 +10,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import dev.jason.gboardpatches.extension.R;
 import dev.jason.gboardpatches.extension.settings.GboardPatchesFeatureAvailability;
@@ -25,6 +27,8 @@ public final class GboardExtendedDictionarySettingsFeature
         thread.setDaemon(true);
         return thread;
     });
+    private static final AtomicReference<ExtendedDictionaryProgressDialog.Job> CURRENT_JOB =
+            new AtomicReference<>();
 
     private final String entryTitle;
     private final String entrySummary;
@@ -64,29 +68,31 @@ public final class GboardExtendedDictionarySettingsFeature
         boolean supported = GboardPersonalDictionaryReflectionGateway.isSupported(
                 gboardClassLoader);
         int managedCount = managedCount(context);
+        ExtendedDictionaryProgressDialog.Job job = CURRENT_JOB.get();
+        boolean running = job != null;
+        if (running && job.attachedHost.getAndSet(host) != host) {
+            GboardPatchesSettingsContract.showManagedDialog(host,
+                    ExtendedDictionaryProgressDialog.create(context, job));
+        }
         List<GboardPatchesSettingsContract.Row> rows = new ArrayList<>();
         rows.add(new GboardPatchesSettingsContract.CommandRow(
                 text(context, R.string.gboard_patches_extended_dictionary_import_title),
                 GboardSettingsText.format(context,
                         R.string.gboard_patches_extended_dictionary_import_summary,
                         WordListParser.MAX_ROWS_PER_IMPORT),
-                supported,
+                supported && !running,
                 () -> importWordList(host)));
         rows.add(new GboardPatchesSettingsContract.DangerRow(
                 text(context, R.string.gboard_patches_extended_dictionary_remove_title),
                 text(context, R.string.gboard_patches_extended_dictionary_remove_summary),
-                supported && managedCount > 0,
+                supported && !running && managedCount > 0,
                 () -> removeImportedWords(host),
                 text(context, R.string.gboard_patches_extended_dictionary_remove_confirm_title),
                 text(context,
                         R.string.gboard_patches_extended_dictionary_remove_confirm_message)));
         rows.add(new GboardPatchesSettingsContract.InfoRow(
                 text(context, R.string.gboard_patches_extended_dictionary_status_title),
-                managedCount < 0
-                        ? text(context, R.string.gboard_patches_extended_dictionary_status_unreadable)
-                        : GboardSettingsText.format(context,
-                                R.string.gboard_patches_extended_dictionary_status_summary,
-                                managedCount),
+                statusSummary(context, managedCount),
                 true));
         List<GboardPatchesSettingsContract.Section> sections = Collections.singletonList(
                 new GboardPatchesSettingsContract.Section(
@@ -102,6 +108,13 @@ public final class GboardExtendedDictionarySettingsFeature
                 sections);
     }
 
+    private static String statusSummary(Context context, int managedCount) {
+        return managedCount < 0
+                ? text(context, R.string.gboard_patches_extended_dictionary_status_unreadable)
+                : GboardSettingsText.format(context,
+                        R.string.gboard_patches_extended_dictionary_status_summary, managedCount);
+    }
+
     private static int managedCount(Context context) {
         try {
             return ManagedEntryStore.open(context).load().size();
@@ -114,27 +127,61 @@ public final class GboardExtendedDictionarySettingsFeature
     private void importWordList(GboardPatchesSettingsContract.FeatureHost host) {
         GboardPatchesSettingsContract.openBinaryDocument(host, WORD_LIST_MIME_TYPES,
                 document -> runInBackground(host,
+                        new ExtendedDictionaryProgressDialog.Job(
+                                R.string.gboard_patches_extended_dictionary_progress_import_title,
+                                true),
                         text(host.getContext(),
                                 R.string.gboard_patches_extended_dictionary_import_failed),
-                        () -> importDocument(host.getContext(), document.getData())));
+                        (progress, cancel) -> importDocument(host.getContext(),
+                                document.getData(), progress, cancel)));
     }
 
     private void removeImportedWords(GboardPatchesSettingsContract.FeatureHost host) {
         runInBackground(host,
+                new ExtendedDictionaryProgressDialog.Job(
+                        R.string.gboard_patches_extended_dictionary_progress_remove_title, false),
                 text(host.getContext(), R.string.gboard_patches_extended_dictionary_remove_failed),
-                () -> removeAll(host.getContext()));
+                (progress, cancel) -> removeAll(host.getContext(), progress));
     }
 
-    private static void runInBackground(GboardPatchesSettingsContract.FeatureHost host,
-            String failureMessage, Task task) {
+    static ExtendedDictionaryProgressDialog.Job currentJob() {
+        return CURRENT_JOB.get();
+    }
+
+    static void runInBackground(GboardPatchesSettingsContract.FeatureHost host,
+            ExtendedDictionaryProgressDialog.Job job, String failureMessage, Work work) {
+        if (!CURRENT_JOB.compareAndSet(null, job)) {
+            return;
+        }
+        job.attachedHost.set(host);
+        GboardPatchesSettingsContract.showManagedDialog(host,
+                ExtendedDictionaryProgressDialog.create(host.getContext(), job));
         Handler main = new Handler(Looper.getMainLooper());
+        ExtendedDictionaryImporter.Progress progress = (done, total) -> {
+            job.onProgress(done, total);
+            main.post(job::render);
+        };
         WORKER.execute(() -> {
-            String message = runSafely(task, failureMessage);
-            main.post(() -> {
-                GboardPatchesSettingsContract.showMessage(host, message);
-                GboardPatchesSettingsContract.refresh(host);
-            });
+            String message = runSafely(() -> work.run(progress, job.cancel), failureMessage);
+            job.finished = true;
+            CURRENT_JOB.set(null);
+            main.post(() -> finish(host, job, message));
         });
+    }
+
+    private static void finish(GboardPatchesSettingsContract.FeatureHost host,
+            ExtendedDictionaryProgressDialog.Job job, String message) {
+        job.render();
+        if (ExtendedDictionaryProgressDialog.isHostGone(host.getContext())) {
+            Log.i(TAG, "Settings screen closed before the dictionary job finished");
+            return;
+        }
+        try {
+            GboardPatchesSettingsContract.showMessage(host, message);
+            GboardPatchesSettingsContract.refresh(host);
+        } catch (RuntimeException failure) {
+            Log.w(TAG, "Could not report dictionary job result: " + failure.getClass().getName());
+        }
     }
 
     /** The worker runs inside Gboard's main process, so nothing may escape it. */
@@ -148,6 +195,12 @@ public final class GboardExtendedDictionarySettingsFeature
     }
 
     String importDocument(Context context, byte[] data) {
+        return importDocument(context, data, (done, total) -> {
+        }, new AtomicBoolean());
+    }
+
+    String importDocument(Context context, byte[] data,
+            ExtendedDictionaryImporter.Progress progress, AtomicBoolean cancel) {
         List<WordListParser.Row> rows;
         try {
             rows = WordListParser.parse(data);
@@ -165,10 +218,13 @@ public final class GboardExtendedDictionarySettingsFeature
         try {
             ExtendedDictionaryImporter.ImportResult result =
                     ExtendedDictionaryImporter.importRows(
-                            gateway, ManagedEntryStore.open(context), rows);
+                            gateway, ManagedEntryStore.open(context), rows, progress, cancel);
             Log.i(TAG, "Import rows=" + rows.size() + " inserted=" + result.inserted
                     + " skipped=" + result.skippedExisting + " failed=" + result.failed
-                    + " rolledBack=" + result.rolledBack);
+                    + " rolledBack=" + result.rolledBack + " cancelled=" + result.cancelled);
+            if (result.cancelled) {
+                return text(context, R.string.gboard_patches_extended_dictionary_import_cancelled);
+            }
             if (!result.rolledBack) {
                 return GboardSettingsText.format(context,
                         R.string.gboard_patches_extended_dictionary_import_done,
@@ -188,6 +244,11 @@ public final class GboardExtendedDictionarySettingsFeature
     }
 
     String removeAll(Context context) {
+        return removeAll(context, (done, total) -> {
+        });
+    }
+
+    String removeAll(Context context, ExtendedDictionaryImporter.Progress progress) {
         GboardPersonalDictionaryReflectionGateway gateway =
                 GboardPersonalDictionaryReflectionGateway.open(context, gboardClassLoader);
         if (gateway == null) {
@@ -195,7 +256,8 @@ public final class GboardExtendedDictionarySettingsFeature
         }
         try {
             ExtendedDictionaryImporter.RemoveResult result =
-                    ExtendedDictionaryImporter.removeAll(gateway, ManagedEntryStore.open(context));
+                    ExtendedDictionaryImporter.removeAll(
+                            gateway, ManagedEntryStore.open(context), progress);
             Log.i(TAG, "Remove deleted=" + result.deleted + " forgotten=" + result.forgotten
                     + " failed=" + result.failed);
             return GboardSettingsText.format(context,
@@ -246,5 +308,9 @@ public final class GboardExtendedDictionarySettingsFeature
 
     interface Task {
         String run();
+    }
+
+    interface Work {
+        String run(ExtendedDictionaryImporter.Progress progress, AtomicBoolean cancel);
     }
 }

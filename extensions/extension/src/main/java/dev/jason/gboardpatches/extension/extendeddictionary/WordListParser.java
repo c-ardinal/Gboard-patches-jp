@@ -18,11 +18,11 @@ import java.util.zip.ZipInputStream;
 
 /** Parses Gboard's personal dictionary export format (text or ZIP of text entries). */
 final class WordListParser {
-    static final int MAX_ROWS_PER_IMPORT = 5000;
+    static final int MAX_ROWS_PER_IMPORT = 50_000;
     static final int MAX_FIELD_LENGTH = 256;
     static final int MAX_INPUT_BYTES = 8 * 1024 * 1024;
     static final int MAX_LINE_CHARS = 4 * MAX_FIELD_LENGTH + 3;
-    static final int MAX_LINES = 50_000;
+    static final int MAX_LINES = 60_000;
     static final String VERSION_PREFIX = "# Gboard Dictionary version:";
     static final String FORMAT_PREFIX = "# Gboard Dictionary format:";
     private static final String FORMAT_THREE_COLUMNS =

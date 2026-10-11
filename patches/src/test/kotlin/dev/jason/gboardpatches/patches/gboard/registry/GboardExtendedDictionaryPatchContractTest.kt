@@ -2,6 +2,7 @@ package dev.jason.gboardpatches.patches.gboard.registry
 
 import com.google.gson.JsonParser
 import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.EXTENDED_DICTIONARY_FEATURE_MARKER
+import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.EXTENDED_DICTIONARY_RUNTIME_FIELDS
 import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.EXTENDED_DICTIONARY_RUNTIME_TARGETS
 import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.gboardExtendedDictionaryFeatureMarkerPatch
 import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.gboardExtendedDictionaryGuardPatch
@@ -50,16 +51,17 @@ class GboardExtendedDictionaryPatchContractTest {
         assertEquals(
             listOf(
                 "Lqcj;-><init>(Landroid/content/Context;)V",
-                "Lqcj;->a(Lqca;)J",
-                "Lqcj;->c()Lqce;",
-                "Lqcj;->e(J)V",
-                "Lqca;-><init>(JLjava/lang/String;Ljava/lang/String;Lrph;Ljava/lang/String;)V",
+                "Lqcg;->f()V",
                 "Lrph;->g(Ljava/lang/String;)Lrph;",
             ),
             EXTENDED_DICTIONARY_RUNTIME_TARGETS.map { target -> target.reference },
         )
+        assertEquals(
+            listOf("Lqcg;->a:Ljava/lang/String;", "Lqcg;->b:Lqcd;"),
+            EXTENDED_DICTIONARY_RUNTIME_FIELDS.map { target -> target.reference },
+        )
         val gateway = Files.readString(repositoryRoot.resolve(GATEWAY_PATH), StandardCharsets.UTF_8)
-        listOf("\"qcj\"", "\"qca\"", "\"rph\"").forEach { name ->
+        listOf("\"qcj\"", "\"qcg\"", "\"rph\"").forEach { name ->
             assertTrue("Gateway must resolve $name", gateway.contains(name))
         }
     }
