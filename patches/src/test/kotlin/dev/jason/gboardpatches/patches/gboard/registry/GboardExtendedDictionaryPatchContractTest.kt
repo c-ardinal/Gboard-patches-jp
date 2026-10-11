@@ -1,21 +1,117 @@
 package dev.jason.gboardpatches.patches.gboard.registry
 
+import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.Companion.toMutable
+import com.android.tools.smali.dexlib2.AccessFlags
+import com.android.tools.smali.dexlib2.Opcode
+import com.android.tools.smali.dexlib2.iface.instruction.Instruction
+import com.android.tools.smali.dexlib2.iface.instruction.NarrowLiteralInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
+import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
+import com.android.tools.smali.dexlib2.immutable.ImmutableMethodImplementation
+import com.android.tools.smali.dexlib2.immutable.ImmutableMethodParameter
+import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction10x
+import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction22t
+import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction31i
 import com.google.gson.JsonParser
 import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.EXTENDED_DICTIONARY_FEATURE_MARKER
+import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.EXTENDED_DICTIONARY_MOZC_CAP_TARGETS
 import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.EXTENDED_DICTIONARY_RUNTIME_FIELDS
 import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.EXTENDED_DICTIONARY_RUNTIME_TARGETS
+import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.MOZC_SHORTCUT_PATCHED_CAP
+import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.MOZC_SHORTCUT_STOCK_CAP
 import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.gboardExtendedDictionaryFeatureMarkerPatch
 import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.gboardExtendedDictionaryGuardPatch
+import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.gboardExtendedDictionaryMozcCapPatch
+import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.raiseMozcShortcutCap
 import dev.jason.gboardpatches.patches.gboard.shared.gboardPatchesSettingsPatch
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GboardExtendedDictionaryPatchContractTest {
     private val repositoryRoot = repositoryRoot()
+
+    @Test
+    fun `mozc cap patch targets both MozcShortcutsUtil caps and raises them to one million`() {
+        assertEquals(200_000, MOZC_SHORTCUT_STOCK_CAP)
+        assertEquals(1_000_000, MOZC_SHORTCUT_PATCHED_CAP)
+        assertEquals(
+            listOf(
+                "Liam;->a(Ljava/util/List;Ljava/lang/String;)Ljava/lang/String;",
+                "Liam;->b(Ljava/util/List;)V",
+            ),
+            EXTENDED_DICTIONARY_MOZC_CAP_TARGETS.map { target -> target.reference },
+        )
+    }
+
+    @Test
+    fun `mozc cap rewrite replaces the single guarded constant and keeps its register`() {
+        val method = mozcCapMethod(
+            ImmutableInstruction31i(Opcode.CONST, 1, MOZC_SHORTCUT_STOCK_CAP),
+            ImmutableInstruction22t(Opcode.IF_LE, 0, 1, 3),
+            ImmutableInstruction10x(Opcode.RETURN_VOID),
+        )
+
+        method.raiseMozcShortcutCap()
+
+        val constants = method.implementation!!.instructions
+            .filterIsInstance<NarrowLiteralInstruction>()
+            .map { instruction -> instruction.narrowLiteral }
+        assertEquals(listOf(MOZC_SHORTCUT_PATCHED_CAP), constants)
+        val constant = method.implementation!!.instructions.first()
+        assertEquals(Opcode.CONST, constant.opcode)
+        assertEquals(1, (constant as OneRegisterInstruction).registerA)
+    }
+
+    @Test
+    fun `mozc cap rewrite fails closed when the instruction shape differs`() {
+        assertThrows(IllegalStateException::class.java) {
+            mozcCapMethod(ImmutableInstruction10x(Opcode.RETURN_VOID)).raiseMozcShortcutCap()
+        }
+        assertThrows(IllegalStateException::class.java) {
+            mozcCapMethod(
+                ImmutableInstruction31i(Opcode.CONST, 1, MOZC_SHORTCUT_STOCK_CAP),
+                ImmutableInstruction31i(Opcode.CONST, 0, MOZC_SHORTCUT_STOCK_CAP),
+                ImmutableInstruction22t(Opcode.IF_LE, 0, 1, 3),
+                ImmutableInstruction10x(Opcode.RETURN_VOID),
+            ).raiseMozcShortcutCap()
+        }
+        assertThrows(IllegalStateException::class.java) {
+            mozcCapMethod(
+                ImmutableInstruction31i(Opcode.CONST, 1, MOZC_SHORTCUT_STOCK_CAP),
+                ImmutableInstruction10x(Opcode.RETURN_VOID),
+            ).raiseMozcShortcutCap()
+        }
+        assertThrows(IllegalStateException::class.java) {
+            mozcCapMethod(
+                ImmutableInstruction31i(Opcode.CONST_WIDE_32, 1, MOZC_SHORTCUT_STOCK_CAP),
+                ImmutableInstruction22t(Opcode.IF_LE, 0, 1, 3),
+                ImmutableInstruction10x(Opcode.RETURN_VOID),
+            ).raiseMozcShortcutCap()
+        }
+        assertThrows(IllegalStateException::class.java) {
+            mozcCapMethod(
+                ImmutableInstruction31i(Opcode.CONST, 1, MOZC_SHORTCUT_STOCK_CAP),
+                ImmutableInstruction22t(Opcode.IF_LE, 0, 2, 3),
+                ImmutableInstruction10x(Opcode.RETURN_VOID),
+            ).raiseMozcShortcutCap()
+        }
+    }
+
+    private fun mozcCapMethod(vararg instructions: Instruction) = ImmutableMethod(
+        "Liam;",
+        "b",
+        listOf(ImmutableMethodParameter("Ljava/util/List;", null, null)),
+        "V",
+        AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
+        null,
+        null,
+        ImmutableMethodImplementation(3, instructions.toList(), null, null),
+    ).toMutable()
 
     @Test
     fun `public patch is version sensitive guarded and enabled by default`() {
@@ -28,6 +124,7 @@ class GboardExtendedDictionaryPatchContractTest {
                 gboardPatchesSettingsPatch,
                 gboardExtendedDictionaryFeatureMarkerPatch,
                 gboardExtendedDictionaryGuardPatch,
+                gboardExtendedDictionaryMozcCapPatch,
             ),
             patch.dependencies,
         )

@@ -44,6 +44,7 @@ import dev.jason.gboardpatches.patches.gboard.features.emojisize.gboardEmojiSize
 import dev.jason.gboardpatches.patches.gboard.features.emojisize.gboardEmojiSizeFlagValuePatch
 import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.gboardExtendedDictionaryFeatureMarkerPatch
 import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.gboardExtendedDictionaryGuardPatch
+import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.gboardExtendedDictionaryMozcCapPatch
 import dev.jason.gboardpatches.patches.gboard.features.webclipboard.gboardWebClipboardAssetsPatch
 import dev.jason.gboardpatches.patches.gboard.features.webclipboard.gboardWebClipboardCapturePatch
 import dev.jason.gboardpatches.patches.gboard.features.webclipboard.gboardWebClipboardFeatureMarkerPatch
@@ -580,6 +581,7 @@ val gboardExtendedDictionaryPatch = gboardPublicResourcePatch(
         gboardPatchesSettingsPatch,
         gboardExtendedDictionaryFeatureMarkerPatch,
         gboardExtendedDictionaryGuardPatch,
+        gboardExtendedDictionaryMozcCapPatch,
     )
 }
 

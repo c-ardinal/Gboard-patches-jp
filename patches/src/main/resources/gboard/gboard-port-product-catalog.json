@@ -824,6 +824,7 @@
       "consumer_files": [
         "patches/src/main/kotlin/dev/jason/gboardpatches/patches/gboard/features/extendeddictionary/GboardExtendedDictionaryFeatureMarkerPatch.kt",
         "patches/src/main/kotlin/dev/jason/gboardpatches/patches/gboard/features/extendeddictionary/GboardExtendedDictionaryGuardPatch.kt",
+        "patches/src/main/kotlin/dev/jason/gboardpatches/patches/gboard/features/extendeddictionary/GboardExtendedDictionaryMozcCapPatch.kt",
         "patches/src/main/kotlin/dev/jason/gboardpatches/patches/gboard/registry/GboardPatchRegistry.kt"
       ],
       "contributions": [
