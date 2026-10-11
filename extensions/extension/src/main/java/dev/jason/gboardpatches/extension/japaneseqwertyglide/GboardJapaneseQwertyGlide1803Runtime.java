@@ -29,9 +29,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.WeakHashMap;
 
-/** PoC: decodes English glide strokes on Gboard 18.0.3 Japanese QWERTY ABC through Mozc. */
+/** Decodes English glide strokes on Gboard 18.0.3 Japanese QWERTY ABC through Mozc. */
 public final class GboardJapaneseQwertyGlide1803Runtime {
-    static final String TAG = "GboardJaGlidePoC";
+    static final String TAG = "GboardJaGlide";
     static final int ABC_KEYBOARD_DEF = 0x7f170704;
     static final int KANA_KEYBOARD_DEF = 0x7f170705;
     static final String BODY_VIEW_TYPE = "BODY";

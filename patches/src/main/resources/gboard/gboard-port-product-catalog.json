@@ -1060,8 +1060,8 @@
       ]
     },
     {
-      "feature_id": "japanese_qwerty_glide_poc",
-      "public_patch_name": "Japanese QWERTY Glide (PoC)",
+      "feature_id": "japanese_qwerty_glide",
+      "public_patch_name": "Japanese QWERTY Glide",
       "feature_marker": null,
       "target_family_ids": [
         "japaneseqwertyglide"
@@ -1074,7 +1074,7 @@
       ],
       "contributions": [
         {
-          "contribution_id": "japanese_qwerty_glide_poc.bytecode",
+          "contribution_id": "japanese_qwerty_glide.bytecode",
           "anchor_family_id": "dedicated_bytecode",
           "phase": "dedicated",
           "order": 100,

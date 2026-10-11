@@ -11,11 +11,11 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class GboardJapaneseQwertyGlidePocPatchContractTest {
+class GboardJapaneseQwertyGlidePatchContractTest {
     @Test
-    fun pocPatchIsOptInAndOnlyPullsTheGlideBytecodePatch() {
-        val patch = gboardJapaneseQwertyGlidePocPatch
-        assertEquals("Japanese QWERTY Glide (PoC)", patch.name)
+    fun patchIsOptInAndOnlyPullsTheGlideBytecodePatch() {
+        val patch = gboardJapaneseQwertyGlidePatch
+        assertEquals("Japanese QWERTY Glide", patch.name)
         assertFalse(patch.default)
         assertTrue(patch.options.isEmpty())
         assertEquals(1, patch.dependencies.size)
@@ -29,10 +29,10 @@ class GboardJapaneseQwertyGlidePocPatchContractTest {
     }
 
     @Test
-    fun generatedInventoryPublishesThePocAsDisabledByDefault() {
+    fun generatedInventoryPublishesThePatchAsDisabledByDefault() {
         val patches = generatedPublishedPatches()
         assertMatchesPublishedRegistrationCount(patches.size)
-        val row = patches.single { row -> row.get("name").asString == "Japanese QWERTY Glide (PoC)" }
+        val row = patches.single { row -> row.get("name").asString == "Japanese QWERTY Glide" }
         assertFalse(row.get("use").asBoolean)
         assertEquals(
             listOf(TARGET_VERSION),

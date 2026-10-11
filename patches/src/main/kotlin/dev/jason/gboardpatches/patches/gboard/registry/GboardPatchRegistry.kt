@@ -787,11 +787,11 @@ val gboardLatinGlobeKeyIgnoreIntervalPatch = gboardPublicResourcePatch(
 }
 
 @Suppress("unused")
-val gboardJapaneseQwertyGlidePocPatch = gboardPublicResourcePatch(
-    featureId = "japanese_qwerty_glide_poc",
-    name = "Japanese QWERTY Glide (PoC)",
-    description = "實驗性 PoC：在日文 QWERTY ABC 模式使用內建英文模型解碼滑行詞彙並傳送至 Mozc，附診斷日誌\n" +
-        "Experimental PoC: decode English Glide words in Japanese QWERTY ABC mode and pass them to Mozc. " +
+val gboardJapaneseQwertyGlidePatch = gboardPublicResourcePatch(
+    featureId = "japanese_qwerty_glide",
+    name = "Japanese QWERTY Glide",
+    description = "在日文 QWERTY 鍵盤的 ABC 模式使用內建英文模型解碼滑行輸入的英文單字並傳送至 Mozc，附診斷日誌\n" +
+        "Decode glide-typed English words on the ABC layout of the Japanese QWERTY keyboard and pass them to Mozc. " +
         "Uses the bundled English model; diagnostic logging enabled.",
     default = false,
 ) {
@@ -916,7 +916,7 @@ object GboardPublishedPatchCatalog {
         gboardOcrScanTextPatch,
         gboardSettingsHomepagePatch,
         gboardLatinGlobeKeyIgnoreIntervalPatch,
-        gboardJapaneseQwertyGlidePocPatch,
+        gboardJapaneseQwertyGlidePatch,
         gboardZhuyinBottomRowWeightPatch,
         gboardPackageRenamePatch,
         gboardSignatureBypassPatch,

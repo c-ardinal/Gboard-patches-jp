@@ -681,7 +681,7 @@ class GboardPortProductCatalogContractTest {
             "grammar_checker" to "version-sensitive",
             "incognito_mode_toggle" to "version-sensitive",
             "inline_suggestions" to "version-sensitive",
-            "japanese_qwerty_glide_poc" to "version-sensitive",
+            "japanese_qwerty_glide" to "version-sensitive",
             "key_shape_selection" to "version-sensitive",
             "lan_ftp_server" to "version-neutral-extension",
             "latin_globe_key_ignore_interval" to "version-sensitive",
