@@ -20,6 +20,10 @@ final class ExtendedDictionaryImporter {
         final boolean rolledBack;
         final int rollbackLeftovers;
         final boolean cancelled;
+        /** ja-JP rows whose reading Mozc would never ingest (see isMozcReading). */
+        final int skippedReading;
+        /** Stored entries dropped because the user deleted or edited them in Gboard. */
+        final int forgotten;
 
         ImportResult(int inserted, int skippedExisting, int failed, boolean rolledBack,
                 int rollbackLeftovers) {
@@ -28,12 +32,30 @@ final class ExtendedDictionaryImporter {
 
         ImportResult(int inserted, int skippedExisting, int failed, boolean rolledBack,
                 int rollbackLeftovers, boolean cancelled) {
+            this(inserted, skippedExisting, failed, rolledBack, rollbackLeftovers, cancelled,
+                    0, 0);
+        }
+
+        private ImportResult(int inserted, int skippedExisting, int failed, boolean rolledBack,
+                int rollbackLeftovers, boolean cancelled, int skippedReading, int forgotten) {
             this.inserted = inserted;
             this.skippedExisting = skippedExisting;
             this.failed = failed;
             this.rolledBack = rolledBack;
             this.rollbackLeftovers = rollbackLeftovers;
             this.cancelled = cancelled;
+            this.skippedReading = skippedReading;
+            this.forgotten = forgotten;
+        }
+
+        ImportResult withSkippedReading(int count) {
+            return new ImportResult(inserted, skippedExisting, failed, rolledBack,
+                    rollbackLeftovers, cancelled, count, forgotten);
+        }
+
+        ImportResult withForgotten(int count) {
+            return new ImportResult(inserted, skippedExisting, failed, rolledBack,
+                    rollbackLeftovers, cancelled, skippedReading, count);
         }
     }
 
@@ -82,7 +104,7 @@ final class ExtendedDictionaryImporter {
     }
 
     static String posTagFor(WordListParser.Row row) {
-        if (!JAPANESE_LOCALE_TAG.equalsIgnoreCase(row.localeTag.replace('_', '-'))) {
+        if (!isJapanese(row)) {
             return "";
         }
         return row.posTag.isEmpty() ? JAPANESE_DEFAULT_POS_TAG : row.posTag;
@@ -96,7 +118,61 @@ final class ExtendedDictionaryImporter {
 
     static ImportResult importRows(PersonalDictionaryGateway gateway, ManagedEntryStore store,
             List<WordListParser.Row> rows, Progress progress, AtomicBoolean cancel) {
-        List<ManagedEntryStore.Entry> existing = store.load();
+        List<WordListParser.Row> accepted = new ArrayList<>(rows.size());
+        for (WordListParser.Row row : rows) {
+            if (!isJapanese(row) || isMozcReading(row.shortcut)) {
+                accepted.add(row);
+            }
+        }
+        return importAccepted(gateway, store, accepted, progress, cancel)
+                .withSkippedReading(rows.size() - accepted.size());
+    }
+
+    private static boolean isJapanese(WordListParser.Row row) {
+        return JAPANESE_LOCALE_TAG.equalsIgnoreCase(row.localeTag.replace('_', '-'));
+    }
+
+    /**
+     * Mirrors Gboard 18.0.3 iam.c(), the filter its Mozc shortcuts handler (iak.d) applies to
+     * each reading: non-empty, at most 256 chars, and only these code points.
+     */
+    static boolean isMozcReading(String reading) {
+        if (reading == null || reading.isEmpty() || reading.length() > 256) {
+            return false;
+        }
+        for (int index = 0; index < reading.length(); ) {
+            int c = reading.codePointAt(index);
+            boolean allowed = (c >= 0x21 && c <= 0x7E) // printable ASCII
+                    || (c >= 0x3041 && c <= 0x3096) // hiragana
+                    || (c >= 0x309B && c <= 0x309C) // (han)dakuten
+                    || (c >= 0x30A1 && c <= 0x30F6) // katakana
+                    || (c >= 0x30FB && c <= 0x30FC) // middle dot, prolonged sound mark
+                    || (c >= 0x3001 && c <= 0x3002) // ideographic comma and full stop
+                    || (c >= 0x300C && c <= 0x300F) // corner brackets
+                    || c == 0x301C // wave dash
+                    || (c >= 0xFF01 && c <= 0xFF5E) // full-width ASCII
+                    || (c >= 0xFF61 && c <= 0xFF9F); // half-width katakana and punctuation
+            if (!allowed) {
+                return false;
+            }
+            index += Character.charCount(c);
+        }
+        return true;
+    }
+
+    private static ImportResult importAccepted(PersonalDictionaryGateway gateway,
+            ManagedEntryStore store, List<WordListParser.Row> rows, Progress progress,
+            AtomicBoolean cancel) {
+        // Rows the user deleted or edited in Gboard are no longer ours; their rowids may be
+        // reused by this very import, so they must leave the store first.
+        List<ManagedEntryStore.Entry> stored = store.load();
+        List<ManagedEntryStore.Entry> existing = new ArrayList<>(stored.size());
+        for (ManagedEntryStore.Entry entry : stored) {
+            if (matches(gateway, entry)) {
+                existing.add(entry);
+            }
+        }
+        int forgotten = stored.size() - existing.size();
         List<ManagedEntryStore.Entry> pending = new ArrayList<>();
         Set<String> seen = new HashSet<>();
         int skipped = 0;
@@ -112,7 +188,10 @@ final class ExtendedDictionaryImporter {
         }
         progress.onProgress(0, pending.size());
         if (pending.isEmpty()) {
-            return new ImportResult(0, skipped, 0, false, 0);
+            if (forgotten > 0) {
+                store.save(existing);
+            }
+            return new ImportResult(0, skipped, 0, false, 0).withForgotten(forgotten);
         }
         long[] ids;
         try {
@@ -140,7 +219,7 @@ final class ExtendedDictionaryImporter {
             }
             store.save(verified);
             return new ImportResult(verified.size() - existing.size(), skipped, failed,
-                    false, 0);
+                    false, 0).withForgotten(forgotten);
         } catch (RuntimeException failure) {
             return new ImportResult(0, skipped, 0, true, rollBack(gateway, inserted));
         }
@@ -200,6 +279,7 @@ final class ExtendedDictionaryImporter {
 
     private static boolean matches(PersonalDictionaryGateway gateway,
             ManagedEntryStore.Entry entry) {
-        return gateway.exists(entry.id, entry.word, entry.shortcut, entry.localeTag);
+        return gateway.exists(
+                entry.id, entry.word, entry.shortcut, entry.localeTag, entry.posTag);
     }
 }

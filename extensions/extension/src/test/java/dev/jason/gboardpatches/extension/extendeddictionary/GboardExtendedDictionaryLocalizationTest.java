@@ -250,6 +250,7 @@ public final class GboardExtendedDictionaryLocalizationTest {
     private static void clearStore(Context context) {
         context.getSharedPreferences(ManagedEntryStore.PREF_FILE, Context.MODE_PRIVATE)
                 .edit().clear().commit();
+        context.deleteDatabase(ManagedEntryStore.DATABASE_NAME);
     }
 
     private static void assertEnglish(GboardPatchesSettingsContract.Screen screen) {

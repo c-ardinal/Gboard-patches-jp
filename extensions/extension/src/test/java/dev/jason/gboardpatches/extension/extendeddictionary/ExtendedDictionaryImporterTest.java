@@ -33,8 +33,74 @@ public final class ExtendedDictionaryImporterTest {
         Context context = RuntimeEnvironment.getApplication();
         context.getSharedPreferences(ManagedEntryStore.PREF_FILE, Context.MODE_PRIVATE)
                 .edit().clear().commit();
+        context.deleteDatabase(ManagedEntryStore.DATABASE_NAME);
         store = ManagedEntryStore.open(context);
         gateway = new FakeGateway();
+    }
+
+    @Test
+    public void japaneseRowsWithReadingsMozcRejectsAreSkippedAndCountedSeparately() {
+        ExtendedDictionaryImporter.ImportResult result = ExtendedDictionaryImporter.importRows(
+                gateway, store, Arrays.asList(
+                        row("こうちく", "構築", "ja-JP", ""),
+                        row("コーヒー", "珈琲", "ja-JP", ""),
+                        row("構築", "構築", "ja-JP", ""),
+                        row("", "犬", "ja-JP", ""),
+                        row("構築", "構築", "zh-TW", "")));
+
+        assertEquals(3, result.inserted);
+        assertEquals(2, result.skippedReading);
+        assertEquals(0, result.skippedExisting);
+        assertFalse(gateway.contains("構築", "構築", "ja-JP"));
+        assertTrue(gateway.contains("構築", "構築", "zh-TW"));
+    }
+
+    @Test
+    public void mozcReadingFilterMatchesGboardsCharacterSet() {
+        assertTrue(ExtendedDictionaryImporter.isMozcReading("abc!~"));
+        assertTrue(ExtendedDictionaryImporter.isMozcReading("ぁゖ゛゜"));
+        assertTrue(ExtendedDictionaryImporter.isMozcReading("ァヶ・ー"));
+        assertTrue(ExtendedDictionaryImporter.isMozcReading("、。「』〜"));
+        assertTrue(ExtendedDictionaryImporter.isMozcReading("！～｡ﾟ"));
+        assertFalse(ExtendedDictionaryImporter.isMozcReading(""));
+        assertFalse(ExtendedDictionaryImporter.isMozcReading("a b"));
+        assertFalse(ExtendedDictionaryImporter.isMozcReading("゗"));
+        assertFalse(ExtendedDictionaryImporter.isMozcReading("ヷ"));
+        assertFalse(ExtendedDictionaryImporter.isMozcReading("　"));
+        assertFalse(ExtendedDictionaryImporter.isMozcReading("一"));
+        assertFalse(ExtendedDictionaryImporter.isMozcReading("a".repeat(257)));
+        assertTrue(ExtendedDictionaryImporter.isMozcReading("a".repeat(256)));
+    }
+
+    @Test
+    public void importDropsStoredEntriesTheUserDeletedEvenWhenNothingIsInserted() {
+        long userId = gateway.addUserRow("Mine", "m", "en-US", "");
+        store.save(Collections.singletonList(
+                new ManagedEntryStore.Entry(999L, "Gone", "g", "en-US", "")));
+
+        ExtendedDictionaryImporter.ImportResult result = ExtendedDictionaryImporter.importRows(
+                gateway, store, Collections.singletonList(row("m", "Mine", "en-US", "")));
+
+        assertEquals(0, result.inserted);
+        assertEquals(1, result.forgotten);
+        assertTrue(store.load().isEmpty());
+        assertTrue(gateway.rows.containsKey(userId));
+    }
+
+    @Test
+    public void reusedRowidWithADifferentPosIsNotDeleted() {
+        ExtendedDictionaryImporter.importRows(gateway, store, Collections.singletonList(
+                row("いぬ", "犬", "ja-JP", "")));
+        long id = store.load().get(0).id;
+        gateway.rows.put(id, new String[] {"犬", "いぬ", "ja-JP", "人名"});
+
+        ExtendedDictionaryImporter.RemoveResult result =
+                ExtendedDictionaryImporter.removeAll(gateway, store);
+
+        assertEquals(0, result.deleted);
+        assertEquals(1, result.forgotten);
+        assertTrue(gateway.rows.containsKey(id));
+        assertTrue(gateway.deletedIds.isEmpty());
     }
 
     @Test
@@ -246,10 +312,11 @@ public final class ExtendedDictionaryImporterTest {
         }
 
         @Override
-        public boolean exists(long id, String word, String shortcut, String localeTag) {
+        public boolean exists(long id, String word, String shortcut, String localeTag,
+                String posTag) {
             String[] row = rows.get(id);
             return row != null && row[0].equals(word) && row[1].equals(shortcut)
-                    && row[2].equals(localeTag);
+                    && row[2].equals(localeTag) && row[3].equals(posTag);
         }
 
         @Override

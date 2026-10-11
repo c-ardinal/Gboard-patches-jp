@@ -60,9 +60,9 @@ public final class GboardPersonalDictionaryReflectionGatewayTest {
         assertEquals(1, count(POS_TABLE));
         assertEquals(NOUN, posTag(ids[0]));
         assertEquals(1, notifications.get());
-        assertTrue(gateway.exists(ids[1], "On my way!", "omw", "en-US"));
+        assertTrue(gateway.exists(ids[1], "On my way!", "omw", "en-US", ""));
         assertTrue(gateway.contains("Mine", "m", "en-US"));
-        assertFalse(gateway.exists(userId, "On my way!", "omw", "en-US"));
+        assertFalse(gateway.exists(userId, "On my way!", "omw", "en-US", ""));
     }
 
     @Test
@@ -85,6 +85,60 @@ public final class GboardPersonalDictionaryReflectionGatewayTest {
         assertEquals(1, count(POS_TABLE));
         assertEquals(NOUN, posTag(1L));
         assertEquals(1, notifications.get());
+    }
+
+    @Test
+    public void existsComparesThePosTagSoAReusedRowidWithAnotherPosDoesNotMatch() {
+        long[] ids = gateway.insertAll(rows(1), noProgress(), new AtomicBoolean());
+        long englishId = userRow("Word", "w", "en-US");
+        assertTrue(gateway.exists(ids[0], "w0", "s0", "ja-JP", NOUN));
+        assertTrue(gateway.exists(englishId, "Word", "w", "en-US", ""));
+        helper.getWritableDatabase().execSQL(
+                "UPDATE " + POS_TABLE + " SET pos_tag = ? WHERE _id = ?",
+                new Object[] {"人名", ids[0]});
+        insertPos(englishId, NOUN);
+
+        GboardPersonalDictionaryReflectionGateway fresh =
+                new GboardPersonalDictionaryReflectionGateway(helper, POS_TABLE, () -> {
+                }, tag -> tag);
+        assertFalse(fresh.exists(ids[0], "w0", "s0", "ja-JP", NOUN));
+        assertTrue(fresh.exists(ids[0], "w0", "s0", "ja-JP", "人名"));
+        assertFalse(fresh.exists(englishId, "Word", "w", "en-US", ""));
+    }
+
+    @Test
+    public void rowidReusedAfterTheUserDeletedAManagedRowDoesNotBreakTheNextImport() {
+        context.deleteDatabase(ManagedEntryStore.DATABASE_NAME);
+        for (int index = 1; index <= 100; index++) {
+            userRow("user" + index, "u" + index, "en-US");
+        }
+        List<WordListParser.Row> first = new ArrayList<>();
+        for (int index = 0; index < 100; index++) {
+            first.add(new WordListParser.Row("s" + index, "first" + index, "en-US", ""));
+        }
+        try (ManagedEntryStore store = ManagedEntryStore.open(context)) {
+            ExtendedDictionaryImporter.importRows(gateway, store, first);
+            assertEquals(101L, store.load().get(0).id);
+            assertEquals(200L, store.load().get(99).id);
+
+            helper.getWritableDatabase().delete("entry", "_id = ?", new String[] {"200"});
+            GboardPersonalDictionaryReflectionGateway next =
+                    new GboardPersonalDictionaryReflectionGateway(helper, POS_TABLE, () -> {
+                    }, tag -> tag);
+            ExtendedDictionaryImporter.ImportResult result =
+                    ExtendedDictionaryImporter.importRows(next, store, Collections.singletonList(
+                            new WordListParser.Row("n", "newWord", "en-US", "")));
+
+            assertFalse(result.rolledBack);
+            assertEquals(1, result.inserted);
+            assertEquals(1, result.forgotten);
+            List<ManagedEntryStore.Entry> managed = store.load();
+            assertEquals(100, managed.size());
+            ManagedEntryStore.Entry reused = managed.get(99);
+            assertEquals(200L, reused.id);
+            assertEquals("newWord", reused.word);
+            assertEquals(1, managed.stream().filter(entry -> entry.id == 200L).count());
+        }
     }
 
     @Test
@@ -130,8 +184,8 @@ public final class GboardPersonalDictionaryReflectionGatewayTest {
         assertEquals(3, count(POS_TABLE));
         assertNull(posTag(ids[1]));
         assertEquals(NOUN, posTag(userId));
-        assertFalse(gateway.exists(ids[1], "w1", "s1", "ja-JP"));
-        assertTrue(gateway.exists(ids[0], "w0", "s0", "ja-JP"));
+        assertFalse(gateway.exists(ids[1], "w1", "s1", "ja-JP", NOUN));
+        assertTrue(gateway.exists(ids[0], "w0", "s0", "ja-JP", NOUN));
         assertEquals(1, notifications.get());
     }
 
@@ -174,7 +228,7 @@ public final class GboardPersonalDictionaryReflectionGatewayTest {
                 entry("犬", "いぬ", "ja-jp", NOUN)), noProgress(), new AtomicBoolean());
 
         assertEquals(1, FakeBase.notified);
-        assertTrue(opened.exists(ids[0], "犬", "いぬ", "ja-jp"));
+        assertTrue(opened.exists(ids[0], "犬", "いぬ", "ja-jp", NOUN));
         opened.close();
     }
 

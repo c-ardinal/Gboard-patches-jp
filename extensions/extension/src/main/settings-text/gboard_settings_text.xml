@@ -3306,6 +3306,14 @@
         <translation locale="en">Imported %1$d words. Skipped %2$d existing, %3$d failed.</translation>
         <translation locale="zh-Hant">已匯入 %1$d 個單字。略過 %2$d 個已存在，%3$d 個失敗。</translation>
     </string>
+    <string name="gboard_patches_extended_dictionary_import_skipped_reading">
+        <translation locale="en">%1$d rows skipped: reading not accepted by Mozc</translation>
+        <translation locale="zh-Hant">已略過 %1$d 列：Mozc 不接受其讀音</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_import_forgotten">
+        <translation locale="en">%1$d imported words were changed or deleted in Gboard and are no longer tracked</translation>
+        <translation locale="zh-Hant">有 %1$d 個已匯入的單字已在 Gboard 中變更或刪除，不再追蹤</translation>
+    </string>
     <string name="gboard_patches_extended_dictionary_import_rolled_back">
         <translation locale="en">Import failed. Added words were rolled back.</translation>
         <translation locale="zh-Hant">匯入失敗，已復原新增的單字。</translation>

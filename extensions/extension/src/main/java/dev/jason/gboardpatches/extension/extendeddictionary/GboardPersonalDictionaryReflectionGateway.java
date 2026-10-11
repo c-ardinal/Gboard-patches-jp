@@ -154,8 +154,7 @@ final class GboardPersonalDictionaryReflectionGateway
 
     private static Set<String> columns(SQLiteDatabase db, String table) {
         Set<String> columns = new HashSet<>();
-        try (Cursor cursor = db.rawQuery("PRAGMA table_info(\"" + table.replace("\"", "\"\"")
-                + "\")", null)) {
+        try (Cursor cursor = db.rawQuery("PRAGMA table_info(" + quoted(table) + ")", null)) {
             int name = cursor.getColumnIndex("name");
             while (name >= 0 && cursor.moveToNext()) {
                 columns.add(cursor.getString(name));
@@ -173,11 +172,16 @@ final class GboardPersonalDictionaryReflectionGateway
     }
 
     @Override
-    public boolean exists(long id, String word, String shortcut, String localeTag) {
+    public boolean exists(long id, String word, String shortcut, String localeTag,
+            String posTag) {
         if (rowsById == null || rowsStale) {
             loadRows();
         }
-        return key(word, shortcut, normalizedTag(localeTag)).equals(rowsById.get(id));
+        String tag = normalizedTag(localeTag);
+        String expectedPos = ExtendedDictionaryImporter.JAPANESE_LOCALE_TAG.equals(tag)
+                ? posTag : "";
+        return (key(word, shortcut, tag) + '\u0000' + nonNull(expectedPos))
+                .equals(rowsById.get(id));
     }
 
     @Override
@@ -270,16 +274,14 @@ final class GboardPersonalDictionaryReflectionGateway
     private void loadRows() {
         Map<Long, String> byId = new HashMap<>();
         Set<String> keys = new HashSet<>();
-        try (Cursor cursor = helper.getReadableDatabase().query(ENTRY_TABLE,
-                ENTRY_COLUMNS.toArray(new String[0]), null, null, null, null, null)) {
-            int idColumn = cursor.getColumnIndexOrThrow("_id");
-            int wordColumn = cursor.getColumnIndexOrThrow("word");
-            int shortcutColumn = cursor.getColumnIndexOrThrow("shortcut");
-            int localeColumn = cursor.getColumnIndexOrThrow("locale");
+        String pos = quoted(posTable);
+        // Same LEFT JOIN as Gboard's own qcj.c() reader.
+        try (Cursor cursor = helper.getReadableDatabase().rawQuery(
+                "SELECT entry._id, word, shortcut, locale, " + pos + ".pos_tag FROM entry"
+                        + " LEFT JOIN " + pos + " ON entry._id = " + pos + "._id", null)) {
             while (cursor.moveToNext()) {
-                String key = key(cursor.getString(wordColumn), cursor.getString(shortcutColumn),
-                        cursor.getString(localeColumn));
-                byId.put(cursor.getLong(idColumn), key);
+                String key = key(cursor.getString(1), cursor.getString(2), cursor.getString(3));
+                byId.put(cursor.getLong(0), key + '\u0000' + nonNull(cursor.getString(4)));
                 keys.add(key);
             }
         }
@@ -301,6 +303,11 @@ final class GboardPersonalDictionaryReflectionGateway
 
     private static String key(String word, String shortcut, String localeTag) {
         return nonNull(word) + '\u0000' + nonNull(shortcut) + '\u0000' + nonNull(localeTag);
+    }
+
+    /** SQL identifier quoting for the table name read from Gboard's qcg.a constant. */
+    private static String quoted(String identifier) {
+        return "\"" + identifier.replace("\"", "\"\"") + "\"";
     }
 
     private static String nonNull(String value) {

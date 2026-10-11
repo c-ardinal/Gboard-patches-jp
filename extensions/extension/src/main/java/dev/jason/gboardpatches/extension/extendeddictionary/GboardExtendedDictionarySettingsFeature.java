@@ -116,8 +116,8 @@ public final class GboardExtendedDictionarySettingsFeature
     }
 
     private static int managedCount(Context context) {
-        try {
-            return ManagedEntryStore.open(context).load().size();
+        try (ManagedEntryStore store = ManagedEntryStore.open(context)) {
+            return store.count();
         } catch (RuntimeException failure) {
             Log.w(TAG, "Managed dictionary entries are unreadable");
             return -1;
@@ -215,20 +215,31 @@ public final class GboardExtendedDictionarySettingsFeature
         if (gateway == null) {
             return text(context, R.string.gboard_patches_extended_dictionary_unsupported_summary);
         }
-        try {
+        try (ManagedEntryStore store = ManagedEntryStore.open(context)) {
             ExtendedDictionaryImporter.ImportResult result =
-                    ExtendedDictionaryImporter.importRows(
-                            gateway, ManagedEntryStore.open(context), rows, progress, cancel);
+                    ExtendedDictionaryImporter.importRows(gateway, store, rows, progress, cancel);
             Log.i(TAG, "Import rows=" + rows.size() + " inserted=" + result.inserted
                     + " skipped=" + result.skippedExisting + " failed=" + result.failed
+                    + " skippedReading=" + result.skippedReading
                     + " rolledBack=" + result.rolledBack + " cancelled=" + result.cancelled);
             if (result.cancelled) {
                 return text(context, R.string.gboard_patches_extended_dictionary_import_cancelled);
             }
             if (!result.rolledBack) {
-                return GboardSettingsText.format(context,
+                String done = GboardSettingsText.format(context,
                         R.string.gboard_patches_extended_dictionary_import_done,
                         result.inserted, result.skippedExisting, result.failed);
+                if (result.skippedReading > 0) {
+                    done += "\n" + GboardSettingsText.format(context,
+                            R.string.gboard_patches_extended_dictionary_import_skipped_reading,
+                            result.skippedReading);
+                }
+                if (result.forgotten > 0) {
+                    done += "\n" + GboardSettingsText.format(context,
+                            R.string.gboard_patches_extended_dictionary_import_forgotten,
+                            result.forgotten);
+                }
+                return done;
             }
             return result.rollbackLeftovers == 0
                     ? text(context, R.string.gboard_patches_extended_dictionary_import_rolled_back)
@@ -254,10 +265,9 @@ public final class GboardExtendedDictionarySettingsFeature
         if (gateway == null) {
             return text(context, R.string.gboard_patches_extended_dictionary_unsupported_summary);
         }
-        try {
+        try (ManagedEntryStore store = ManagedEntryStore.open(context)) {
             ExtendedDictionaryImporter.RemoveResult result =
-                    ExtendedDictionaryImporter.removeAll(
-                            gateway, ManagedEntryStore.open(context), progress);
+                    ExtendedDictionaryImporter.removeAll(gateway, store, progress);
             Log.i(TAG, "Remove deleted=" + result.deleted + " forgotten=" + result.forgotten
                     + " failed=" + result.failed);
             return GboardSettingsText.format(context,

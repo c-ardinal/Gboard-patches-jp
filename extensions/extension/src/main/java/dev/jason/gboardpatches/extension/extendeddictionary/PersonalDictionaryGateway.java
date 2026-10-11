@@ -7,7 +7,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 interface PersonalDictionaryGateway {
     boolean contains(String word, String shortcut, String localeTag);
 
-    boolean exists(long id, String word, String shortcut, String localeTag);
+    /** True when row id still holds exactly this entry, including its ja-JP POS tag. */
+    boolean exists(long id, String word, String shortcut, String localeTag, String posTag);
 
     /**
      * Inserts every entry in one transaction and returns their row ids in order. Nothing is
