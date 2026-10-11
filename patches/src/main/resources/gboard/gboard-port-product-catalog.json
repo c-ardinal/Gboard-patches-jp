@@ -1060,6 +1060,38 @@
       ]
     },
     {
+      "feature_id": "japanese_qwerty_glide",
+      "public_patch_name": "Japanese QWERTY Glide",
+      "feature_marker": null,
+      "target_family_ids": [
+        "japaneseqwertyglide"
+      ],
+      "migration_scope": "version-sensitive",
+      "consumer_files": [
+        "patches/src/main/kotlin/dev/jason/gboardpatches/patches/gboard/features/japaneseqwertyglide/GboardJapaneseQwertyGlide1803Targets.kt",
+        "patches/src/main/kotlin/dev/jason/gboardpatches/patches/gboard/features/japaneseqwertyglide/GboardJapaneseQwertyGlideBytecodePatch.kt",
+        "patches/src/main/kotlin/dev/jason/gboardpatches/patches/gboard/registry/GboardPatchRegistry.kt"
+      ],
+      "contributions": [
+        {
+          "contribution_id": "japanese_qwerty_glide.bytecode",
+          "anchor_family_id": "dedicated_bytecode",
+          "phase": "dedicated",
+          "order": 100,
+          "required_bindings": [],
+          "runtime_calls": [
+            "JAPANESE_QWERTY_GLIDE_RUNTIME_AUGMENT_MOTION_EVENT_HANDLERS",
+            "JAPANESE_QWERTY_GLIDE_RUNTIME_HANDLE_HANDLER_EVENT",
+            "JAPANESE_QWERTY_GLIDE_SPACING_OBSERVE_IME",
+            "JAPANESE_QWERTY_GLIDE_SPACING_APPEND_COMMIT",
+            "JAPANESE_QWERTY_GLIDE_RUNTIME_ON_INPUT_SESSION_CHANGED",
+            "JAPANESE_QWERTY_GLIDE_RUNTIME_OVERRIDE_GESTURE_READY",
+            "JAPANESE_QWERTY_GLIDE_RUNTIME_OVERRIDE_INPUT_AREA"
+          ]
+        }
+      ]
+    },
+    {
       "feature_id": "key_shape_selection",
       "public_patch_name": "Key Shape Selection",
       "feature_marker": "dev.jason.gboardpatches.feature.key_shape_selection",

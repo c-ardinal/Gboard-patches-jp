@@ -58,6 +58,7 @@ import dev.jason.gboardpatches.patches.gboard.features.featureflags.gboardInline
 import dev.jason.gboardpatches.patches.gboard.features.featureflags.gboardKeyShapeSelectionFeatureMarkerPatch
 import dev.jason.gboardpatches.patches.gboard.features.featureflags.gboardKeyShapeSelectionFlagValuePatch
 import dev.jason.gboardpatches.patches.gboard.features.flowmode.gboardFlowModeFeatureMarkerPatch
+import dev.jason.gboardpatches.patches.gboard.features.japaneseqwertyglide.gboardJapaneseQwertyGlideBytecodePatch
 import dev.jason.gboardpatches.patches.gboard.features.lanftp.gboardLanFtpFeatureMarkerPatch
 import dev.jason.gboardpatches.patches.gboard.features.lanftp.gboardLanFtpManifestPatch
 import dev.jason.gboardpatches.patches.gboard.features.latinglobe.gboardLatinGlobeKeyIgnoreIntervalBytecodePatch
@@ -786,6 +787,22 @@ val gboardLatinGlobeKeyIgnoreIntervalPatch = gboardPublicResourcePatch(
 }
 
 @Suppress("unused")
+val gboardJapaneseQwertyGlidePatch = gboardPublicResourcePatch(
+    featureId = "japanese_qwerty_glide",
+    name = "Japanese QWERTY Glide",
+    description = "在日文 QWERTY 鍵盤的 ABC 模式使用內建英文模型解碼滑行輸入的英文單字並傳送至 Mozc，附診斷日誌\n" +
+        "Decode glide-typed English words on the ABC layout of the Japanese QWERTY keyboard and pass them to Mozc. " +
+        "Uses the bundled English model; diagnostic logging enabled.",
+    default = false,
+) {
+    compatibleWith(COMPATIBILITY_GBOARD)
+
+    dependsOn(
+        gboardJapaneseQwertyGlideBytecodePatch,
+    )
+}
+
+@Suppress("unused")
 val gboardZhuyinBottomRowWeightPatch = gboardPublicResourcePatch(
     featureId = "zhuyin_bottom_row_key_sizes",
     name = "Zhuyin Bottom Row Key Sizes",
@@ -899,6 +916,7 @@ object GboardPublishedPatchCatalog {
         gboardOcrScanTextPatch,
         gboardSettingsHomepagePatch,
         gboardLatinGlobeKeyIgnoreIntervalPatch,
+        gboardJapaneseQwertyGlidePatch,
         gboardZhuyinBottomRowWeightPatch,
         gboardPackageRenamePatch,
         gboardSignatureBypassPatch,
