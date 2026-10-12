@@ -17,7 +17,7 @@
 
 ## Overview
 
-Gboard Patches is a public Morphe source for a curated set of Gboard enhancements, including both global usability improvements and Taiwan-focused features for local input habits and day-to-day use.
+Gboard Patches is a public Morphe source for a curated set of Gboard enhancements, including both global usability improvements and Taiwan-focused features for local input habits and day-to-day use. The Patches settings UI is available in English, Traditional Chinese, and Japanese.
 
 ## Included Patches
 
@@ -133,6 +133,12 @@ Customize the bottom tab order in Gboard's Emojis, stickers & GIFs panel with dr
   <summary><code>Backup &amp; Restore</code></summary>
 
   Exports all Gboard Patches settings to a portable JSON backup and restores only the modules you select, with per-module and per-key results. It also exports, compares, and restores Gboard's raw PB/XML flag-store files.
+</details>
+
+<details>
+  <summary><code>Extended Dictionary</code></summary>
+
+  Bulk imports word lists in Gboard's own word-list format (text or zip) into the personal dictionary. Imported words are kept in their own "(Extended)" sections of the word list so your own entries stay untouched, Japanese entries get a part of speech so Mozc uses them, and removal deletes only what was imported. It also raises Gboard's Mozc user-dictionary import cap from 200,000 to 1,000,000 entries. Ready-made Japanese word lists (SudachiDict-derived and Wikidata-derived) are published at <a href="https://github.com/c-ardinal/gboard-extended-dictionary">c-ardinal/gboard-extended-dictionary</a>.
 </details>
 
 
@@ -292,6 +298,16 @@ Features tailored to Traditional Chinese and Zhuyin input workflows.
   <summary><code>Zhuyin Bottom Row Key Sizes</code></summary>
 
   Adjusts the seven bottom-row slot sizes on the Zhuyin keyboard, including <code>?123</code>, <code>，</code>, the globe key, space, <code>ㄦ</code>, backspace, and the IME action key.
+</details>
+
+### Japan-focused Features
+
+Features tailored to Japanese input workflows.
+
+<details>
+  <summary><code>Japanese QWERTY Glide</code></summary>
+
+  Enables glide typing of English words on the ABC layout of the Japanese keyboard, with in-progress candidates and an ASCII space on commit. Disabled by default.
 </details>
 
 ## Install
