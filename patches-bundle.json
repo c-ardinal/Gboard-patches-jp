@@ -1,7 +1,7 @@
 {
-    "created_at":  "2026-10-04T16:21:27",
-    "description":  "### ✨ New Features\n\n* **Gboard:** add the `Frosted Glass` patch, bringing real-time background blur and customizable theme transparency to the keyboard. 👀\n\n### ✨ 新功能\n\n* **Gboard:** 新增 `Frosted Glass` Patch，為鍵盤加入即時背景模糊效果，並支援自訂主題透明度。👀",
-    "download_url":  "https://github.com/jasonwu1994/Gboard-patches/releases/download/v3.12.0/patches-3.12.0.mpp",
+    "created_at":  "2026-10-12T23:05:20",
+    "description":  "### ✨ New Features\n\n* **Gboard:** add Japanese localization to the Patches settings UI, which is now available in English, Traditional Chinese, and Japanese.\n* **Gboard:** add the `Japanese QWERTY Glide` patch, enabling glide typing of English words on the ABC layout of the Japanese keyboard (disabled by default).\n* **Gboard:** add the `Extended Dictionary` patch, bulk-importing word lists into the personal dictionary in separate \"(Extended)\" word-list sections and raising the Mozc user-dictionary cap to 1,000,000 entries. Ready-made Japanese word lists are available at [c-ardinal/gboard-extended-dictionary](https://github.com/c-ardinal/gboard-extended-dictionary).\n\n### ✨ 新功能\n\n* **Gboard:** Patches 設定介面新增日文在地化，現已支援英文、繁體中文與日文。\n* **Gboard:** 新增 `Japanese QWERTY Glide` Patch，可在日文鍵盤的 ABC 配置以滑行輸入英文單字（預設停用）。\n* **Gboard:** 新增 `Extended Dictionary` Patch，將單字清單批次匯入個人字典並放在獨立的「（擴充）」區段，同時將 Mozc 使用者字典上限提高至 1,000,000 筆。現成的日文單字清單請見 [c-ardinal/gboard-extended-dictionary](https://github.com/c-ardinal/gboard-extended-dictionary)。",
+    "download_url":  "https://github.com/c-ardinal/Gboard-patches-jp/releases/download/v3.12.0-jp.1/patches-3.12.0-jp.1.mpp",
     "signature_download_url":  "",
-    "version":  "3.12.0"
+    "version":  "3.12.0-jp.1"
 }
