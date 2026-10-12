@@ -88,15 +88,10 @@ public final class GboardExtendedDictionaryLocalizationTest {
     }
 
     @Test
-    public void remainingTimeIsUnknownUntilTwoSamplesThenExtrapolated() {
+    public void remainingTimeTextAndCount() {
         Context english = localized(Locale.ENGLISH);
         Context chinese = localized(Locale.forLanguageTag("zh-Hant"));
-        long tenSeconds = 10_000_000_000L;
 
-        assertEquals(-1L, ExtendedDictionaryProgressDialog.remainingSeconds(tenSeconds, 0, 100, 0));
-        assertEquals(-1L, ExtendedDictionaryProgressDialog.remainingSeconds(tenSeconds, 25, 100, 1));
-        assertEquals(30L, ExtendedDictionaryProgressDialog.remainingSeconds(tenSeconds, 25, 100, 2));
-        assertEquals(0L, ExtendedDictionaryProgressDialog.remainingSeconds(tenSeconds, 100, 100, 5));
         assertEquals(ExtendedDictionaryProgressDialog.UNKNOWN_REMAINING,
                 ExtendedDictionaryProgressDialog.remainingText(english, -1L));
         assertEquals("About 30 s remaining",
@@ -126,12 +121,37 @@ public final class GboardExtendedDictionaryLocalizationTest {
         assertTrue(job.cancel.get());
         assertTrue(dialog.isShowing());
 
+        job.complete(true);
         job.finished = true;
         job.render();
-        shadowOf(Looper.getMainLooper()).idle();
+        assertTrue("100% stays visible briefly", dialog.isShowing());
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(
+                ExtendedDictionaryProgressDialog.COMPLETE_HOLD_MS + 100));
         assertFalse(dialog.isShowing());
         assertTrue(dismissed[0]);
         assertNull(job.view);
+        assertEquals(1f, job.snapshot.get().overallFraction, 0f);
+    }
+
+    @Test
+    public void cancelledOrFailedJobsCloseAtOnceWithoutFakingOneHundredPercent() {
+        Activity activity = Robolectric.buildActivity(Activity.class).setup().get();
+        ExtendedDictionaryProgressDialog.Job job = new ExtendedDictionaryProgressDialog.Job(
+                R.string.gboard_patches_extended_dictionary_progress_import_title, true);
+        job.onProgress(250, 1000);
+        float reached = job.snapshot.get().overallFraction;
+        assertTrue(reached < 1f);
+        ExtendedDictionaryProgressDialog.create(activity, job).show(() -> {
+        });
+        AlertDialog dialog = (AlertDialog) ShadowDialog.getLatestDialog();
+
+        job.complete(false);
+        job.finished = true;
+        job.render();
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertFalse("closed without the 100% hold", dialog.isShowing());
+        assertEquals(reached, job.snapshot.get().overallFraction, 0f);
     }
 
     @Test
@@ -147,7 +167,7 @@ public final class GboardExtendedDictionaryLocalizationTest {
 
         GboardExtendedDictionarySettingsFeature.runInBackground(new TestHost(activity), job,
                 "failed", (progress, cancel) -> {
-                    progress.onProgress(1, 2);
+                    progress.onProgress(PhasedEta.Phase.INSERT, 1, 2);
                     try {
                         assertTrue(release.await(10, TimeUnit.SECONDS));
                     } catch (InterruptedException interrupted) {
@@ -199,6 +219,49 @@ public final class GboardExtendedDictionaryLocalizationTest {
         simple.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
         shadowOf(Looper.getMainLooper()).idle();
         assertEquals(java.util.Arrays.asList(true, false), choices);
+    }
+
+    @Test
+    public void detachedDialogThatThrowsOnDismissDoesNotBreakCompletion() throws Exception {
+        ActivityController<Activity> controller =
+                Robolectric.buildActivity(Activity.class).setup();
+        Activity activity = controller.get();
+        Context application = activity.getApplicationContext();
+        clearStore(application);
+        CountDownLatch release = new CountDownLatch(1);
+        ExtendedDictionaryProgressDialog.Job job = new ExtendedDictionaryProgressDialog.Job(
+                R.string.gboard_patches_extended_dictionary_progress_import_title, true);
+        int[] dismissAttempts = {0};
+
+        GboardExtendedDictionarySettingsFeature.runInBackground(new TestHost(activity), job,
+                "failed", (progress, cancel) -> {
+                    try {
+                        assertTrue(release.await(10, TimeUnit.SECONDS));
+                    } catch (InterruptedException interrupted) {
+                        throw new IllegalStateException(interrupted);
+                    }
+                    ManagedEntryStore.open(application).save(Collections.singletonList(
+                            new ManagedEntryStore.Entry(1L, "A", "a", "en-US", "")));
+                    return "done";
+                });
+        // A dialog whose window went away with the Activity: Android throws exactly this.
+        job.view = () -> {
+            dismissAttempts[0]++;
+            throw new IllegalArgumentException("View not attached to window manager");
+        };
+        controller.pause().stop().destroy();
+        release.countDown();
+        for (int attempt = 0; attempt < 1000
+                && GboardExtendedDictionarySettingsFeature.currentJob() != null; attempt++) {
+            Thread.sleep(10);
+        }
+        shadowOf(Looper.getMainLooper()).idle();
+
+        assertEquals(1, dismissAttempts[0]);
+        assertNull(GboardExtendedDictionarySettingsFeature.currentJob());
+        assertNull(job.view);
+        assertNull(job.attachedHost.get());
+        assertEquals(1, ManagedEntryStore.open(application).load().size());
     }
 
     @Test

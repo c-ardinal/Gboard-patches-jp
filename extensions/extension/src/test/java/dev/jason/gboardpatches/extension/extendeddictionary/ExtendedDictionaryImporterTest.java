@@ -407,6 +407,38 @@ public final class ExtendedDictionaryImporterTest {
         }
 
         @Override
+        public List<Long> japaneseExtendedIdsWithoutPos() {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public int restorePos(Map<Long, String> posById) {
+            return 0;
+        }
+
+        @Override
+        public java.util.BitSet duplicateOrExisting(List<ManagedEntryStore.Entry> candidates,
+                ExtendedDictionaryImporter.Progress progress) {
+            java.util.BitSet skip = new java.util.BitSet();
+            java.util.Set<String> seen = new java.util.HashSet<>();
+            for (int index = 0; index < candidates.size(); index++) {
+                ManagedEntryStore.Entry entry = candidates.get(index);
+                String tag = normalizedTag(entry.localeTag);
+                String original = ExtendedDictionaryImporter.isExtendedTag(tag)
+                        ? normalizedTag(tag.substring(0, tag.length()
+                                - ExtendedDictionaryImporter.EXTENDED_TAG_SUFFIX.length()))
+                        : tag;
+                if (!seen.add(entry.word + '\u0000' + entry.shortcut + '\u0000' + tag)
+                        || contains(entry.word, entry.shortcut, tag)
+                        || contains(entry.word, entry.shortcut, original)) {
+                    skip.set(index);
+                }
+                progress.onProgress(index + 1, candidates.size());
+            }
+            return skip;
+        }
+
+        @Override
         public boolean contains(String word, String shortcut, String localeTag) {
             return rows.values().stream().anyMatch(row -> row[0].equals(word)
                     && row[1].equals(shortcut) && row[2].equals(localeTag));

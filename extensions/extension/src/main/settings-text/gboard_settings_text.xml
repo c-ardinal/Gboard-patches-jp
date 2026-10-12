@@ -3343,8 +3343,8 @@
         <translation locale="zh-Hant">已移除 %1$d 個單字。保留 %2$d 個已變更的單字，%3$d 個失敗。</translation>
     </string>
     <string name="gboard_patches_extended_dictionary_remove_untracked_message">
-        <translation locale="en">%1$d words in the Extended sections are not tracked (failed imports, or words you added there). Delete them too?</translation>
-        <translation locale="zh-Hant">擴充區段中有 %1$d 個單字未被追蹤（匯入失敗，或您自行加入的單字）。也要一併刪除嗎？</translation>
+        <translation locale="en">%1$d words in the Extended sections are not tracked (failed imports, duplicates left by a Gboard restore, or words you added there). Delete them too?</translation>
+        <translation locale="zh-Hant">擴充區段中有 %1$d 個單字未被追蹤（匯入失敗、Gboard 還原留下的重複項目，或您自行加入的單字）。也要一併刪除嗎？</translation>
     </string>
     <string name="gboard_patches_extended_dictionary_remove_tracked_only">
         <translation locale="en">Remove tracked only</translation>
@@ -3353,6 +3353,38 @@
     <string name="gboard_patches_extended_dictionary_remove_all">
         <translation locale="en">Remove all</translation>
         <translation locale="zh-Hant">全部移除</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_phase_parse">
+        <translation locale="en">Reading file</translation>
+        <translation locale="zh-Hant">讀取檔案</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_phase_repair">
+        <translation locale="en">Checking restored words</translation>
+        <translation locale="zh-Hant">檢查還原的單字</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_phase_reconcile">
+        <translation locale="en">Checking imported words</translation>
+        <translation locale="zh-Hant">檢查已匯入的單字</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_phase_dedupe">
+        <translation locale="en">Finding duplicates</translation>
+        <translation locale="zh-Hant">尋找重複項目</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_phase_insert">
+        <translation locale="en">Adding words</translation>
+        <translation locale="zh-Hant">加入單字</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_phase_save">
+        <translation locale="en">Saving</translation>
+        <translation locale="zh-Hant">儲存</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_phase_delete">
+        <translation locale="en">Removing words</translation>
+        <translation locale="zh-Hant">移除單字</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_repaired">
+        <translation locale="en">%1$d parts of speech restored after a Gboard restore</translation>
+        <translation locale="zh-Hant">Gboard 還原後已恢復 %1$d 個詞性</translation>
     </string>
     <string name="gboard_patches_extended_dictionary_remove_orphans">
         <translation locale="en">%1$d untracked imported words removed</translation>

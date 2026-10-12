@@ -7,6 +7,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 interface PersonalDictionaryGateway {
     boolean contains(String word, String shortcut, String localeTag);
 
+    /**
+     * Bit i is set when candidate i already exists (under its tag, or under the original tag of
+     * an extended one) or repeats an earlier candidate. Decided by the database, not in memory.
+     */
+    java.util.BitSet duplicateOrExisting(List<ManagedEntryStore.Entry> candidates,
+            ExtendedDictionaryImporter.Progress progress);
+
     /** True when row id still holds exactly this entry, including its ja-JP POS tag. */
     boolean exists(long id, String word, String shortcut, String localeTag, String posTag);
 
@@ -32,6 +39,12 @@ interface PersonalDictionaryGateway {
     int[] deleteImported(java.util.Iterator<ManagedEntryStore.Entry> managedById,
             java.util.Set<Long> keepIds, java.util.Set<Long> releasedIds,
             boolean includeUntracked, ExtendedDictionaryImporter.Progress progress, int total);
+
+    /** Ids of Japanese extended-tag rows that have no POS row (read only, no lock held). */
+    List<Long> japaneseExtendedIdsWithoutPos();
+
+    /** Writes the given POS rows in one short transaction; returns how many were written. */
+    int restorePos(java.util.Map<Long, String> posById);
 
     /** Extended-tag rows that are neither managed (ascending id) nor in excludedIds. */
     int countUntracked(java.util.Iterator<ManagedEntryStore.Entry> managedById,

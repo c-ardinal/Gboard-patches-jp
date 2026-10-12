@@ -31,29 +31,80 @@ final class ExtendedDictionaryProgressDialog {
     private static final int PADDING_DP = 24;
 
     /** Process-wide state of a running job; view fields are touched on the main thread only. */
+    /** Immutable progress state handed from the worker to the main thread. */
+    static final class Snapshot {
+        final PhasedEta.Phase phase;
+        final int done;
+        final int total;
+        final long remainingSeconds;
+        final float overallFraction;
+
+        Snapshot(PhasedEta.Phase phase, int done, int total, long remainingSeconds,
+                float overallFraction) {
+            this.phase = phase;
+            this.done = done;
+            this.total = total;
+            this.remainingSeconds = remainingSeconds;
+            this.overallFraction = overallFraction;
+        }
+    }
+
     static final class Job {
         final int titleResId;
         final boolean cancellable;
         final AtomicBoolean cancel = new AtomicBoolean();
         final AtomicReference<Object> attachedHost = new AtomicReference<>();
         final long startNanos = System.nanoTime();
-        volatile int done;
-        volatile int total;
-        volatile int samples;
+        final String kind;
+        final PhasedEta eta;
+        /** The only state the UI reads; replaced as a whole, never mutated. */
+        final AtomicReference<Snapshot> snapshot = new AtomicReference<>();
         volatile boolean finished;
+        /** Only a successful job ends on a full ring; others keep the fraction they reached. */
+        volatile boolean succeeded;
         Runnable view;
 
         Job(int titleResId, boolean cancellable) {
+            this(titleResId, cancellable, "test", java.util.Collections.emptyList(),
+                    java.util.Collections.emptyMap());
+        }
+
+        Job(int titleResId, boolean cancellable, String kind,
+                java.util.List<PhasedEta.Phase> plan,
+                java.util.Map<PhasedEta.Phase, Double> knownRates) {
             this.titleResId = titleResId;
             this.cancellable = cancellable;
+            this.kind = kind;
+            this.eta = new PhasedEta(plan, knownRates);
         }
 
         void onProgress(int done, int total) {
-            this.done = done;
-            this.total = total;
-            if (done > 0) {
-                samples++;
+            onProgress(PhasedEta.Phase.INSERT, done, total);
+        }
+
+        /**
+         * The single writer of progress: the phase count, the time estimate and the overall
+         * work fraction are computed together and published as one snapshot. The fraction comes
+         * from work done (never from time), so it only grows; the time estimate may move.
+         */
+        synchronized void onProgress(PhasedEta.Phase phase, int done, int total) {
+            long now = System.nanoTime();
+            eta.sample(phase, now, done, total);
+            snapshot.set(new Snapshot(phase, done, total, eta.remainingSeconds(now),
+                    eta.workFraction()));
+        }
+
+        /** The work is over; on success 100% is published before the dialog goes away. */
+        synchronized void complete(boolean success) {
+            succeeded = success;
+            if (!success) {
+                return;
             }
+            eta.markComplete();
+            Snapshot previous = snapshot.get();
+            snapshot.set(previous == null
+                    ? new Snapshot(PhasedEta.Phase.INSERT, 0, 0, 0L, 1f)
+                    : new Snapshot(previous.phase, previous.total, previous.total, 0L, 1f));
         }
 
         /** Main thread only. Never throws, and drops every UI reference once finished. */
@@ -83,21 +134,43 @@ final class ExtendedDictionaryProgressDialog {
     private ExtendedDictionaryProgressDialog() {
     }
 
-    /** Seconds left estimated from the elapsed time per finished row; -1 while unknown. */
-    static long remainingSeconds(long elapsedNanos, int done, int total, int samples) {
-        if (samples < 2 || done <= 0) {
-            return -1L;
-        }
-        if (done >= total) {
-            return 0L;
-        }
-        double nanosPerRow = (double) elapsedNanos / done;
-        return (long) Math.ceil(nanosPerRow * (total - done) / 1_000_000_000d);
-    }
-
     static String remainingText(Context context, long seconds) {
         return seconds < 0 ? UNKNOWN_REMAINING : GboardSettingsText.format(context,
                 R.string.gboard_patches_extended_dictionary_progress_remaining, seconds);
+    }
+
+    static final long COMPLETE_HOLD_MS = 400L;
+    private static final float PERCENT_TEXT_SP = 22f;
+    private static final float DETAIL_TEXT_SP = 12f;
+
+    /** Whole percent, rounded down so 100% only appears when the work really is complete. */
+    static String percentText(float fraction) {
+        int percent = (int) Math.floor(Math.max(0f, Math.min(1f, fraction)) * 100f);
+        return percent + "%";
+    }
+
+    private static void dismissSafely(Context context, AlertDialog dialog) {
+        if (isHostGone(context)) {
+            return;
+        }
+        try {
+            dialog.dismiss();
+        } catch (RuntimeException failure) {
+            Log.w(TAG, "Progress dialog dismiss failed: " + failure.getClass().getName());
+        }
+    }
+
+    static String phaseLabel(Context context, PhasedEta.Phase phase) {
+        int label = switch (phase) {
+            case PARSE -> R.string.gboard_patches_extended_dictionary_phase_parse;
+            case REPAIR -> R.string.gboard_patches_extended_dictionary_phase_repair;
+            case RECONCILE -> R.string.gboard_patches_extended_dictionary_phase_reconcile;
+            case DEDUPE -> R.string.gboard_patches_extended_dictionary_phase_dedupe;
+            case INSERT -> R.string.gboard_patches_extended_dictionary_phase_insert;
+            case STORE_WRITE -> R.string.gboard_patches_extended_dictionary_phase_save;
+            case DELETE -> R.string.gboard_patches_extended_dictionary_phase_delete;
+        };
+        return GboardSettingsText.get(context, label);
     }
 
     static String countText(int done, int total) {
@@ -118,13 +191,19 @@ final class ExtendedDictionaryProgressDialog {
             ProgressRing ring = new ProgressRing(context);
             layout.addView(ring, new LinearLayout.LayoutParams(
                     dp(context, RING_SIZE_DP), dp(context, RING_SIZE_DP)));
-            TextView count = new TextView(context);
-            count.setGravity(Gravity.CENTER);
-            count.setPadding(0, padding / 2, 0, 0);
-            layout.addView(count);
+            TextView percent = new TextView(context);
+            percent.setGravity(Gravity.CENTER);
+            percent.setPadding(0, padding / 2, 0, 0);
+            percent.setTextSize(TypedValue.COMPLEX_UNIT_SP, PERCENT_TEXT_SP);
+            layout.addView(percent);
             TextView remaining = new TextView(context);
             remaining.setGravity(Gravity.CENTER);
             layout.addView(remaining);
+            TextView count = new TextView(context);
+            count.setGravity(Gravity.CENTER);
+            count.setTextSize(TypedValue.COMPLEX_UNIT_SP, DETAIL_TEXT_SP);
+            layout.addView(count);
+            boolean[] dismissScheduled = {false};
 
             AlertDialog.Builder builder = new AlertDialog.Builder(context)
                     .setTitle(GboardSettingsText.get(context, job.titleResId))
@@ -146,19 +225,32 @@ final class ExtendedDictionaryProgressDialog {
                     job.attachedHost.compareAndSet(context, null);
                     return;
                 }
-                if (job.finished) {
-                    dialog.dismiss();
+                if (job.finished && !job.succeeded) {
+                    dismissSafely(context, dialog);
                     return;
                 }
-                int total = job.total;
-                int done = job.done;
-                ring.setFraction(total <= 0 ? 0f : (float) done / total);
-                count.setText(countText(done, total));
+                if (job.finished) {
+                    // Show the full ring briefly, then close.
+                    ring.setFraction(1f);
+                    percent.setText(percentText(1f));
+                    remaining.setText("");
+                    if (!dismissScheduled[0]) {
+                        dismissScheduled[0] = true;
+                        ring.postDelayed(() -> dismissSafely(context, dialog), COMPLETE_HOLD_MS);
+                    }
+                    return;
+                }
+                // One read of one immutable snapshot: no field can come from another update.
+                Snapshot state = job.snapshot.get();
+                float fraction = state == null ? 0f : state.overallFraction;
+                ring.setFraction(fraction);
+                percent.setText(percentText(fraction));
+                count.setText(state == null ? "" : phaseLabel(context, state.phase) + ": "
+                        + countText(state.done, state.total));
                 remaining.setText(job.cancel.get()
                         ? GboardSettingsText.get(context,
                                 R.string.gboard_patches_extended_dictionary_progress_cancelling)
-                        : remainingText(context, remainingSeconds(
-                                System.nanoTime() - job.startNanos, done, total, job.samples)));
+                        : remainingText(context, state == null ? -1L : state.remainingSeconds));
             };
             self[0] = update;
             dialog.setOnDismissListener(ignored -> {

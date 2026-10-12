@@ -109,6 +109,12 @@ final class ManagedEntryStore implements AutoCloseable {
      * managed (a reused rowid is no longer released), and goneIds leave the released set.
      */
     void update(Collection<Long> removedIds, List<Entry> added, Collection<Long> goneIds) {
+        update(removedIds, added, goneIds, (done, total) -> {
+        });
+    }
+
+    void update(Collection<Long> removedIds, List<Entry> added, Collection<Long> goneIds,
+            ExtendedDictionaryImporter.Progress progress) {
         migrateLegacy();
         SQLiteDatabase db = helper.getWritableDatabase();
         db.beginTransaction();
@@ -132,7 +138,7 @@ final class ManagedEntryStore implements AutoCloseable {
                 unrelease.bindLong(1, id);
                 unrelease.executeUpdateDelete();
             }
-            insert(db, added);
+            insert(db, added, progress);
             db.setTransactionSuccessful();
         } finally {
             db.endTransaction();
@@ -155,6 +161,34 @@ final class ManagedEntryStore implements AutoCloseable {
         } finally {
             db.endTransaction();
         }
+    }
+
+    /** The managed entries among ids (others are left out), read in a few queries. */
+    java.util.Map<Long, Entry> entriesOf(List<Long> ids,
+            ExtendedDictionaryImporter.Progress progress) {
+        migrateLegacy();
+        java.util.Map<Long, Entry> entries = new java.util.HashMap<>();
+        int chunk = 500;
+        for (int start = 0; start < ids.size(); start += chunk) {
+            List<Long> part = ids.subList(start, Math.min(ids.size(), start + chunk));
+            StringBuilder where = new StringBuilder("id IN (");
+            String[] args = new String[part.size()];
+            for (int index = 0; index < part.size(); index++) {
+                where.append(index == 0 ? "?" : ", ?");
+                args[index] = String.valueOf(part.get(index));
+            }
+            try (Cursor cursor = helper.getReadableDatabase().query(TABLE,
+                    new String[] {"id", "word", "shortcut", "locale", "pos_tag"},
+                    where.append(')').toString(), args, null, null, null)) {
+                while (cursor.moveToNext()) {
+                    entries.put(cursor.getLong(0), new Entry(cursor.getLong(0),
+                            cursor.getString(1), cursor.getString(2), cursor.getString(3),
+                            cursor.getString(4)));
+                }
+            }
+            progress.onProgress(start + part.size(), ids.size());
+        }
+        return entries;
     }
 
     Set<Long> releasedIds() {
@@ -208,7 +242,7 @@ final class ManagedEntryStore implements AutoCloseable {
         db.beginTransaction();
         try {
             db.delete(TABLE, null, null);
-            insert(db, entries);
+            insert(db, entries, null);
             db.setTransactionSuccessful();
         } finally {
             db.endTransaction();
@@ -231,7 +265,7 @@ final class ManagedEntryStore implements AutoCloseable {
             SQLiteDatabase db = helper.getWritableDatabase();
             db.beginTransaction();
             try {
-                insert(db, legacy);
+                insert(db, legacy, null);
                 db.setTransactionSuccessful();
             } finally {
                 db.endTransaction();
@@ -260,7 +294,9 @@ final class ManagedEntryStore implements AutoCloseable {
     }
 
     /** INSERT OR REPLACE: a duplicate id keeps the last entry and can never abort a save. */
-    private static void insert(SQLiteDatabase db, List<Entry> entries) {
+    private static void insert(SQLiteDatabase db, List<Entry> entries,
+            ExtendedDictionaryImporter.Progress progress) {
+        int written = 0;
         try (SQLiteStatement statement = db.compileStatement("INSERT OR REPLACE"
                 + " INTO " + TABLE + "(id, word, shortcut, locale, pos_tag) VALUES (?, ?, ?, ?, ?)")) {
             for (Entry entry : entries) {
@@ -271,6 +307,9 @@ final class ManagedEntryStore implements AutoCloseable {
                 statement.bindString(4, entry.localeTag);
                 statement.bindString(5, entry.posTag);
                 statement.executeInsert();
+                if (progress != null) {
+                    progress.onProgress(++written, entries.size());
+                }
             }
         }
     }

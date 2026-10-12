@@ -174,6 +174,101 @@ public final class GboardPersonalDictionaryReflectionGatewayTest {
     }
 
     @Test
+    public void restoreRepairTouchesOnlyManagedRows() {
+        String extended = ExtendedDictionaryImporter.EXTENDED_JA_TAG;
+        String properNoun = "\u56fa\u6709\u540d\u8a5e";
+        try (ManagedEntryStore store = ManagedEntryStore.open(context)) {
+            store.save(Collections.emptyList());
+            ExtendedDictionaryImporter.importRows(gateway, store, Arrays.asList(
+                    new WordListParser.Row("a", "A", "ja-JP", properNoun),
+                    new WordListParser.Row("b", "B", "ja-JP", ""),
+                    new WordListParser.Row("c", "C", "ja-JP", "")));
+            List<ManagedEntryStore.Entry> managed = store.load();
+            long tracked = managed.get(0).id;
+            long duplicated = managed.get(1).id;
+            long released = managed.get(2).id;
+            store.update(Collections.singletonList(released), Collections.emptyList());
+            // What Gboard's Restore leaves: POS rows gone, a copy of B without POS, and a
+            // restored word of ours that no store knows about.
+            helper.getWritableDatabase().execSQL("DELETE FROM " + POS_TABLE);
+            long copy = userRow("B", "b", extended);
+            long restored = userRow("D", "d", extended);
+
+            ExtendedDictionaryImporter.ImportResult result = ExtendedDictionaryImporter.importRows(
+                    freshGateway(), store, Collections.emptyList());
+
+            assertEquals(2, result.repairedPos);
+            assertEquals(properNoun, posTag(tracked));
+            assertEquals(NOUN, posTag(duplicated));
+            assertNull(posTag(released));
+            assertNull(posTag(copy));
+            assertNull(posTag(restored));
+            assertEquals(2, store.count());
+            assertTrue(freshGateway().exists(copy, "B", "b", extended, ""));
+
+            ExtendedDictionaryImporter.RemoveResult trackedOnly =
+                    ExtendedDictionaryImporter.removeAll(freshGateway(), store);
+            assertEquals(2, trackedOnly.deleted);
+            assertTrue(freshGateway().exists(copy, "B", "b", extended, ""));
+            assertTrue(freshGateway().exists(restored, "D", "d", extended, ""));
+
+            ExtendedDictionaryImporter.RemoveResult all = ExtendedDictionaryImporter.removeAll(
+                    freshGateway(), store, (done, total) -> {
+                    }, true);
+            assertEquals(2, all.orphansDeleted);
+            assertFalse(freshGateway().exists(copy, "B", "b", extended, ""));
+            assertTrue(freshGateway().exists(released, "C", "c", extended, ""));
+        }
+    }
+
+    @Test
+    public void repairNeverWritesPosForAUserRowThatReusedAManagedRowid() {
+        String extended = ExtendedDictionaryImporter.EXTENDED_JA_TAG;
+        try (ManagedEntryStore store = ManagedEntryStore.open(context)) {
+            store.save(Collections.emptyList());
+            ExtendedDictionaryImporter.importRows(gateway, store, Collections.singletonList(
+                    new WordListParser.Row("a", "A", "ja-JP", "")));
+            long id = store.load().get(0).id;
+            helper.getWritableDatabase().execSQL("DELETE FROM entry");
+            helper.getWritableDatabase().execSQL("DELETE FROM " + POS_TABLE);
+            long reused = userRow("Other", "o", extended);
+            assertEquals(id, reused);
+
+            ExtendedDictionaryImporter.ImportResult result = ExtendedDictionaryImporter.importRows(
+                    freshGateway(), store, Collections.emptyList());
+
+            assertEquals(0, result.repairedPos);
+            assertNull(posTag(reused));
+            assertEquals(1, result.forgotten);
+            assertEquals(0, store.count());
+        }
+    }
+
+    @Test
+    public void duplicateOrExistingIsDecidedBySqliteAndLeavesNoTempTables() {
+        String extended = ExtendedDictionaryImporter.EXTENDED_JA_TAG;
+        userRow("犬", "いぬ", "ja-JP");
+        userRow("A", "a", "en-US-x-extdict");
+        helper.getWritableDatabase().execSQL(
+                "INSERT INTO entry(word, shortcut, locale) VALUES ('NoReading', NULL, 'de')");
+
+        java.util.BitSet skip = gateway.duplicateOrExisting(Arrays.asList(
+                entry("犬", "いぬ", extended, NOUN),
+                entry("猫", "ねこ", extended, NOUN),
+                entry("猫", "ねこ", extended, NOUN),
+                entry("A", "a", "en-US-x-extdict", ""),
+                entry("NoReading", "", "de-x-extdict", ""),
+                entry("B", "b", "en-US-x-extdict", "")), noProgress());
+
+        assertEquals(java.util.BitSet.valueOf(new long[] {0b011101}), skip);
+        try (Cursor cursor = helper.getReadableDatabase().rawQuery(
+                "SELECT COUNT(*) FROM sqlite_temp_master", null)) {
+            cursor.moveToFirst();
+            assertEquals(0, cursor.getInt(0));
+        }
+    }
+
+    @Test
     public void matchingIdsStreamsTheTableInRowidOrder() {
         long userId = userRow("Mine", "m", "en-US");
         long[] ids = gateway.insertAll(rows(3), noProgress(), new AtomicBoolean());

@@ -5,6 +5,7 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.database.sqlite.SQLiteStatement;
 import android.util.Log;
 
 import java.lang.reflect.Constructor;
@@ -188,6 +189,76 @@ final class GboardPersonalDictionaryReflectionGateway
             loadRows();
         }
         return rowKeys.contains(key(word, shortcut, normalizedTag(localeTag)));
+    }
+
+    @Override
+    public java.util.BitSet duplicateOrExisting(List<ManagedEntryStore.Entry> candidates,
+            ExtendedDictionaryImporter.Progress progress) {
+        java.util.BitSet skip = new java.util.BitSet(candidates.size());
+        if (candidates.isEmpty()) {
+            return skip;
+        }
+        SQLiteDatabase db = helper.getWritableDatabase();
+        // No transaction: a transaction here would take Gboard's write lock (Android's BEGIN is
+        // EXCLUSIVE or IMMEDIATE). TEMP tables only touch this connection's temp database and
+        // this helper has a single connection, so they stay visible until dropped below.
+        try {
+            db.execSQL("CREATE TEMP TABLE ed_candidate(idx INTEGER PRIMARY KEY, word TEXT,"
+                    + " shortcut TEXT, locale TEXT, original TEXT)");
+            insertCandidates(db, candidates, progress);
+            db.execSQL("CREATE TEMP TABLE ed_existing AS SELECT COALESCE(word, '') AS word,"
+                    + " COALESCE(shortcut, '') AS shortcut, COALESCE(locale, '') AS locale"
+                    + " FROM entry");
+            db.execSQL("CREATE INDEX ed_existing_key ON ed_existing(word, shortcut, locale)");
+            db.execSQL("CREATE INDEX ed_candidate_key ON ed_candidate(word, shortcut, locale)");
+            try (Cursor cursor = db.rawQuery("SELECT idx FROM ed_candidate c WHERE EXISTS"
+                    + " (SELECT 1 FROM ed_existing e WHERE e.word = c.word"
+                    + " AND e.shortcut = c.shortcut AND e.locale IN (c.locale, c.original))"
+                    + " OR EXISTS (SELECT 1 FROM ed_candidate d WHERE d.word = c.word"
+                    + " AND d.shortcut = c.shortcut AND d.locale = c.locale AND d.idx < c.idx)",
+                    null)) {
+                while (cursor.moveToNext()) {
+                    skip.set(cursor.getInt(0));
+                }
+            }
+        } finally {
+            try {
+                db.execSQL("DROP TABLE IF EXISTS temp.ed_candidate");
+                db.execSQL("DROP TABLE IF EXISTS temp.ed_existing");
+            } catch (RuntimeException failure) {
+                // Never mask the original failure; the temp tables die with the connection.
+                Log.w(TAG, "Could not drop temp tables: " + failure.getClass().getName());
+            }
+        }
+        return skip;
+    }
+
+    private static final int CANDIDATES_PER_STATEMENT = 150;
+
+    /** Multi-row INSERTs keep the per-statement cost low without an enclosing transaction. */
+    private void insertCandidates(SQLiteDatabase db, List<ManagedEntryStore.Entry> candidates,
+            ExtendedDictionaryImporter.Progress progress) {
+        for (int start = 0; start < candidates.size(); start += CANDIDATES_PER_STATEMENT) {
+            int end = Math.min(candidates.size(), start + CANDIDATES_PER_STATEMENT);
+            StringBuilder sql = new StringBuilder("INSERT INTO ed_candidate VALUES ");
+            Object[] args = new Object[(end - start) * 5];
+            for (int index = start; index < end; index++) {
+                ManagedEntryStore.Entry entry = candidates.get(index);
+                String tag = normalizedTag(entry.localeTag);
+                int arg = (index - start) * 5;
+                sql.append(index == start ? "(?, ?, ?, ?, ?)" : ", (?, ?, ?, ?, ?)");
+                args[arg] = index;
+                args[arg + 1] = nonNull(entry.word);
+                args[arg + 2] = nonNull(entry.shortcut);
+                args[arg + 3] = tag;
+                args[arg + 4] = ExtendedDictionaryImporter.isExtendedTag(tag)
+                        ? normalizedTag(tag.substring(0, tag.length()
+                                - ExtendedDictionaryImporter.EXTENDED_TAG_SUFFIX.length()))
+                        : tag;
+            }
+            db.execSQL(sql.toString(), args);
+            progress.onProgress(end, candidates.size());
+        }
     }
 
     @Override
@@ -380,6 +451,47 @@ final class GboardPersonalDictionaryReflectionGateway
         }
         notifyChanged();
         return new int[] {managed, untracked};
+    }
+
+    @Override
+    public List<Long> japaneseExtendedIdsWithoutPos() {
+        String pos = quoted(posTable);
+        List<Long> ids = new ArrayList<>();
+        try (Cursor cursor = helper.getReadableDatabase().rawQuery(
+                "SELECT entry._id, entry.locale FROM entry LEFT JOIN " + pos
+                        + " ON entry._id = " + pos + "._id WHERE " + pos + "._id IS NULL"
+                        + " AND entry.locale LIKE ?",
+                new String[] {"%" + ExtendedDictionaryImporter.EXTENDED_TAG_SUFFIX})) {
+            while (cursor.moveToNext()) {
+                if (ExtendedDictionaryImporter.isJapaneseLanguage(cursor.getString(1))) {
+                    ids.add(cursor.getLong(0));
+                }
+            }
+        }
+        return ids;
+    }
+
+    @Override
+    public int restorePos(Map<Long, String> posById) {
+        if (posById.isEmpty()) {
+            return 0;
+        }
+        SQLiteDatabase db = helper.getWritableDatabase();
+        db.beginTransaction();
+        try {
+            for (Map.Entry<Long, String> entry : posById.entrySet()) {
+                ContentValues row = new ContentValues();
+                row.put("_id", entry.getKey());
+                row.put("pos_tag", entry.getValue());
+                // IGNORE: a POS row that exists by now is never overwritten.
+                db.insertWithOnConflict(posTable, null, row, SQLiteDatabase.CONFLICT_IGNORE);
+            }
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+        notifyChanged();
+        return posById.size();
     }
 
     @Override

@@ -37,6 +37,8 @@ final class ExtendedDictionaryImporter {
         final int forgotten;
         /** Inserted rows matching no enabled input language (0 when that is unknown). */
         final int unmatchedLanguage;
+        /** Managed rows given back their POS after Gboard's own Restore dropped it. */
+        final int repairedPos;
 
         ImportResult(int inserted, int skippedExisting, int failed, boolean rolledBack,
                 int rollbackLeftovers) {
@@ -46,12 +48,12 @@ final class ExtendedDictionaryImporter {
         ImportResult(int inserted, int skippedExisting, int failed, boolean rolledBack,
                 int rollbackLeftovers, boolean cancelled) {
             this(inserted, skippedExisting, failed, rolledBack, rollbackLeftovers, cancelled,
-                    0, 0, 0);
+                    0, 0, 0, 0);
         }
 
         private ImportResult(int inserted, int skippedExisting, int failed, boolean rolledBack,
                 int rollbackLeftovers, boolean cancelled, int skippedReading, int forgotten,
-                int unmatchedLanguage) {
+                int unmatchedLanguage, int repairedPos) {
             this.inserted = inserted;
             this.skippedExisting = skippedExisting;
             this.failed = failed;
@@ -61,21 +63,31 @@ final class ExtendedDictionaryImporter {
             this.skippedReading = skippedReading;
             this.forgotten = forgotten;
             this.unmatchedLanguage = unmatchedLanguage;
+            this.repairedPos = repairedPos;
         }
 
         ImportResult withSkippedReading(int count) {
             return new ImportResult(inserted, skippedExisting, failed, rolledBack,
-                    rollbackLeftovers, cancelled, count, forgotten, unmatchedLanguage);
+                    rollbackLeftovers, cancelled, count, forgotten, unmatchedLanguage,
+                    repairedPos);
         }
 
         ImportResult withForgotten(int count) {
             return new ImportResult(inserted, skippedExisting, failed, rolledBack,
-                    rollbackLeftovers, cancelled, skippedReading, count, unmatchedLanguage);
+                    rollbackLeftovers, cancelled, skippedReading, count, unmatchedLanguage,
+                    repairedPos);
         }
 
         ImportResult withUnmatchedLanguage(int count) {
             return new ImportResult(inserted, skippedExisting, failed, rolledBack,
-                    rollbackLeftovers, cancelled, skippedReading, forgotten, Math.max(0, count));
+                    rollbackLeftovers, cancelled, skippedReading, forgotten, Math.max(0, count),
+                    repairedPos);
+        }
+
+        ImportResult withRepair(int repaired) {
+            return new ImportResult(inserted, skippedExisting, failed, rolledBack,
+                    rollbackLeftovers, cancelled, skippedReading, forgotten, unmatchedLanguage,
+                    repaired);
         }
     }
 
@@ -85,16 +97,18 @@ final class ExtendedDictionaryImporter {
         final int failed;
         /** Extended-tag rows that no managed entry recorded (left by a failed import). */
         final int orphansDeleted;
+        final int repairedPos;
 
         RemoveResult(int deleted, int forgotten, int failed) {
-            this(deleted, forgotten, failed, 0);
+            this(deleted, forgotten, failed, 0, 0);
         }
 
-        RemoveResult(int deleted, int forgotten, int failed, int orphansDeleted) {
+        RemoveResult(int deleted, int forgotten, int failed, int orphansDeleted, int repaired) {
             this.deleted = deleted;
             this.forgotten = forgotten;
             this.failed = failed;
             this.orphansDeleted = orphansDeleted;
+            this.repairedPos = repaired;
         }
     }
 
@@ -102,10 +116,42 @@ final class ExtendedDictionaryImporter {
         void onProgress(int done, int total);
     }
 
+    /** Job-level progress: every phase reports its own units, and expected units ahead. */
+    interface JobProgress {
+        void expect(PhasedEta.Phase phase, long units);
+
+        void onProgress(PhasedEta.Phase phase, int done, int total);
+
+        /** The job did what it was asked (not cancelled, not rolled back, no error). */
+        default void succeeded() {
+        }
+
+        /** A throttled per-unit callback for one phase. */
+        default Progress phase(PhasedEta.Phase phase) {
+            return new ProgressThrottle((done, total) -> onProgress(phase, done, total));
+        }
+
+        /** Adapts a plain callback that only wants one phase. */
+        static JobProgress only(PhasedEta.Phase wanted, Progress progress) {
+            return new JobProgress() {
+                @Override
+                public void expect(PhasedEta.Phase phase, long units) {
+                }
+
+                @Override
+                public void onProgress(PhasedEta.Phase phase, int done, int total) {
+                    if (phase == wanted) {
+                        progress.onProgress(done, total);
+                    }
+                }
+            };
+        }
+    }
+
     /** Passes on every PROGRESS_ROW_STEP rows, after PROGRESS_INTERVAL_NANOS, or at the end. */
     static final class ProgressThrottle implements Progress {
         static final int PROGRESS_ROW_STEP = 250;
-        static final long PROGRESS_INTERVAL_NANOS = 500_000_000L;
+        static final long PROGRESS_INTERVAL_NANOS = 200_000_000L;
 
         private final Progress progress;
         private int lastDone;
@@ -145,6 +191,12 @@ final class ExtendedDictionaryImporter {
 
     static ImportResult importRows(PersonalDictionaryGateway gateway, ManagedEntryStore store,
             List<WordListParser.Row> rows, Progress progress, AtomicBoolean cancel) {
+        return importRows(gateway, store, rows,
+                JobProgress.only(PhasedEta.Phase.INSERT, progress), cancel);
+    }
+
+    static ImportResult importRows(PersonalDictionaryGateway gateway, ManagedEntryStore store,
+            List<WordListParser.Row> rows, JobProgress progress, AtomicBoolean cancel) {
         List<WordListParser.Row> accepted = new ArrayList<>(rows.size());
         for (WordListParser.Row row : rows) {
             if (!isJapanese(row) || isMozcReading(row.shortcut)) {
@@ -187,20 +239,6 @@ final class ExtendedDictionaryImporter {
         return (end < 0 ? localeTag : localeTag.substring(0, end)).equalsIgnoreCase("ja");
     }
 
-    /** True when (word, reading) already exists under the original tag or under our own. */
-    private static boolean containsOriginalOrExtended(PersonalDictionaryGateway gateway,
-            WordListParser.Row row) {
-        if (gateway.contains(row.word, row.shortcut, row.localeTag)) {
-            return true;
-        }
-        if (!isExtendedTag(row.localeTag)) {
-            return false;
-        }
-        String original = row.localeTag.substring(
-                0, row.localeTag.length() - EXTENDED_TAG_SUFFIX.length());
-        return gateway.contains(row.word, row.shortcut, original);
-    }
-
     /**
      * Mirrors Gboard 18.0.3 iam.c(), the filter its Mozc shortcuts handler (iak.d) applies to
      * each reading: non-empty, at most 256 chars, and only these code points.
@@ -230,45 +268,58 @@ final class ExtendedDictionaryImporter {
     }
 
     private static ImportResult importAccepted(PersonalDictionaryGateway gateway,
-            ManagedEntryStore store, List<WordListParser.Row> rows, Progress progress,
+            ManagedEntryStore store, List<WordListParser.Row> rows, JobProgress progress,
             AtomicBoolean cancel) {
         // Rows the user deleted or edited in Gboard are no longer ours; their rowids may be
         // reused by this very import, so they must leave the store first.
         // Streamed: the managed list can hold hundreds of thousands of rows, so it is never
         // materialised; only the (usually few) ids to forget are kept.
+        int repair = repair(gateway, store, progress);
+        int storedCount = store.count();
+        progress.expect(PhasedEta.Phase.RECONCILE, storedCount);
+        progress.expect(PhasedEta.Phase.DEDUPE, rows.size());
+        progress.expect(PhasedEta.Phase.INSERT, rows.size());
+        progress.expect(PhasedEta.Phase.STORE_WRITE, rows.size());
         Set<Long> forgottenIds;
         try (ManagedEntryStore.EntryCursor stored = store.iterateById()) {
-            forgottenIds = gateway.mismatchedIds(stored);
+            forgottenIds = gateway.mismatchedIds(counting(stored,
+                    progress.phase(PhasedEta.Phase.RECONCILE), storedCount));
         }
         int forgotten = forgottenIds.size();
         Set<Long> goneReleasedIds = goneReleasedIds(gateway, store);
-        List<ManagedEntryStore.Entry> pending = new ArrayList<>();
-        Set<String> seen = new HashSet<>();
-        int skipped = 0;
+        List<ManagedEntryStore.Entry> candidates = new ArrayList<>(rows.size());
         for (WordListParser.Row row : rows) {
-            String key = row.word + '\u0000' + row.shortcut + '\u0000'
-                    + gateway.normalizedTag(row.localeTag);
-            if (!seen.add(key) || containsOriginalOrExtended(gateway, row)) {
-                skipped++;
-                continue;
-            }
-            pending.add(new ManagedEntryStore.Entry(
+            candidates.add(new ManagedEntryStore.Entry(
                     -1L, row.word, row.shortcut, row.localeTag, posTagFor(row)));
         }
-        progress.onProgress(0, pending.size());
+        // SQLite decides what already exists, so no in-memory copy of the dictionary is needed.
+        java.util.BitSet skip = gateway.duplicateOrExisting(
+                candidates, progress.phase(PhasedEta.Phase.DEDUPE));
+        int skipped = skip.cardinality();
+        List<ManagedEntryStore.Entry> pending = new ArrayList<>(candidates.size() - skipped);
+        for (int index = 0; index < candidates.size(); index++) {
+            if (!skip.get(index)) {
+                pending.add(candidates.get(index));
+            }
+        }
+        candidates = null;
+        progress.expect(PhasedEta.Phase.INSERT, pending.size());
+        progress.expect(PhasedEta.Phase.STORE_WRITE, pending.size());
+        progress.onProgress(PhasedEta.Phase.INSERT, 0, pending.size());
         if (pending.isEmpty()) {
             if (forgotten > 0 || !goneReleasedIds.isEmpty()) {
                 store.update(forgottenIds, Collections.emptyList(), goneReleasedIds);
             }
-            return new ImportResult(0, skipped, 0, false, 0).withForgotten(forgotten);
+            return new ImportResult(0, skipped, 0, false, 0).withForgotten(forgotten)
+                    .withRepair(repair);
         }
         long[] ids;
         try {
-            ids = gateway.insertAll(pending, new ProgressThrottle(progress), cancel);
+            ids = gateway.insertAll(pending, progress.phase(PhasedEta.Phase.INSERT), cancel);
         } catch (CancellationException cancelled) {
-            return new ImportResult(0, skipped, 0, false, 0, true);
+            return new ImportResult(0, skipped, 0, false, 0, true).withRepair(repair);
         } catch (RuntimeException failure) {
-            return new ImportResult(0, skipped, 0, true, 0);
+            return new ImportResult(0, skipped, 0, true, 0).withRepair(repair);
         }
         List<ManagedEntryStore.Entry> inserted = new ArrayList<>(pending.size());
         for (int index = 0; index < pending.size(); index++) {
@@ -280,15 +331,49 @@ final class ExtendedDictionaryImporter {
         try {
             // Record first: the ids come from our own committed inserts, so they are
             // authoritative and need no read-back before the store knows about them.
-            store.update(forgottenIds, inserted, goneReleasedIds);
+            store.update(forgottenIds, inserted, goneReleasedIds,
+                    progress.phase(PhasedEta.Phase.STORE_WRITE));
         } catch (Throwable failure) {
             // Committed but not recorded: anything here, including OutOfMemoryError, must
             // undo the rows or they would stay behind as untracked extended-tag rows.
-            return new ImportResult(0, skipped, 0, true, rollBack(gateway, inserted));
+            return new ImportResult(0, skipped, 0, true, rollBack(gateway, inserted))
+                    .withRepair(repair);
         }
         return new ImportResult(inserted.size(), skipped, 0, false, 0)
                 .withForgotten(forgotten)
-                .withUnmatchedLanguage(countWithoutEnabledLanguage(gateway, inserted));
+                .withUnmatchedLanguage(countWithoutEnabledLanguage(gateway, inserted))
+                .withRepair(repair);
+    }
+
+    /**
+     * Gives managed Japanese rows back the POS that Gboard's own Restore drops. Only managed
+     * rows are touched: unmanaged extended rows (including copies Restore added) are the user's
+     * business and only an explicit "Remove all" deletes them.
+     */
+    private static int repair(PersonalDictionaryGateway gateway, ManagedEntryStore store,
+            JobProgress progress) {
+        List<Long> missing = gateway.japaneseExtendedIdsWithoutPos();
+        progress.expect(PhasedEta.Phase.REPAIR, missing.size());
+        Progress phase = progress.phase(PhasedEta.Phase.REPAIR);
+        phase.onProgress(0, missing.size());
+        java.util.Map<Long, ManagedEntryStore.Entry> tracked = store.entriesOf(missing, phase);
+        // Only rows still holding what was recorded (word, reading, tag; their POS is the part
+        // that is missing): a user row that reused a managed rowid is never touched.
+        List<ManagedEntryStore.Entry> withoutPos = new ArrayList<>(tracked.size());
+        for (ManagedEntryStore.Entry entry : tracked.values()) {
+            if (entry.posTag != null && !entry.posTag.isEmpty()) {
+                withoutPos.add(new ManagedEntryStore.Entry(
+                        entry.id, entry.word, entry.shortcut, entry.localeTag, ""));
+            }
+        }
+        java.util.Map<Long, String> restore = new java.util.HashMap<>();
+        if (!withoutPos.isEmpty()) {
+            for (long id : gateway.matchingIds(withoutPos)) {
+                restore.put(id, tracked.get(id).posTag);
+            }
+        }
+        phase.onProgress(missing.size(), missing.size());
+        return gateway.restorePos(restore);
     }
 
     /** Released ids whose rows the user has since deleted; they leave the released set. */
@@ -340,26 +425,66 @@ final class ExtendedDictionaryImporter {
      */
     static RemoveResult removeAll(PersonalDictionaryGateway gateway, ManagedEntryStore store,
             Progress progress, boolean includeUntracked) {
+        return removeAll(gateway, store,
+                JobProgress.only(PhasedEta.Phase.DELETE, progress), includeUntracked);
+    }
+
+    static RemoveResult removeAll(PersonalDictionaryGateway gateway, ManagedEntryStore store,
+            JobProgress progress, boolean includeUntracked) {
+        int repair;
+        try {
+            repair = repair(gateway, store, progress);
+        } catch (RuntimeException failure) {
+            return new RemoveResult(0, 0, store.count());
+        }
         int stored = store.count();
+        progress.expect(PhasedEta.Phase.RECONCILE, stored);
+        progress.expect(PhasedEta.Phase.DELETE, stored);
         int[] counts;
         Set<Long> forgottenIds;
         try {
             try (ManagedEntryStore.EntryCursor managed = store.iterateById()) {
-                forgottenIds = gateway.mismatchedIds(managed);
+                forgottenIds = gateway.mismatchedIds(counting(managed,
+                        progress.phase(PhasedEta.Phase.RECONCILE), stored));
             }
             Set<Long> released = store.releasedIds();
             int total = stored - forgottenIds.size();
-            progress.onProgress(0, total);
+            progress.onProgress(PhasedEta.Phase.DELETE, 0, total);
             try (ManagedEntryStore.EntryCursor managed = store.iterateById()) {
                 counts = gateway.deleteImported(managed, forgottenIds, released,
-                        includeUntracked, new ProgressThrottle(progress), total);
+                        includeUntracked, progress.phase(PhasedEta.Phase.DELETE), total);
             }
         } catch (RuntimeException failure) {
             // Nothing was committed: every managed entry stays recorded for a later retry.
             return new RemoveResult(0, 0, stored);
         }
         store.clearAndRelease(forgottenIds);
-        return new RemoveResult(counts[0], forgottenIds.size(), 0, counts[1]);
+        return new RemoveResult(counts[0], forgottenIds.size(), 0, counts[1], repair);
+    }
+
+    /** Reports each element taken from source as one unit of a phase. */
+    private static <T> java.util.Iterator<T> counting(java.util.Iterator<T> source,
+            Progress progress, int total) {
+        progress.onProgress(0, total);
+        return new java.util.Iterator<T>() {
+            private int taken;
+
+            @Override
+            public boolean hasNext() {
+                boolean more = source.hasNext();
+                if (!more) {
+                    progress.onProgress(total, total);
+                }
+                return more;
+            }
+
+            @Override
+            public T next() {
+                T next = source.next();
+                progress.onProgress(Math.min(++taken, total), total);
+                return next;
+            }
+        };
     }
 
     /** Informational only: never fails an import that has already been committed. */

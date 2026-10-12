@@ -127,7 +127,8 @@ public final class GboardExtendedDictionarySettingsFeature
                 document -> runInBackground(host,
                         new ExtendedDictionaryProgressDialog.Job(
                                 R.string.gboard_patches_extended_dictionary_progress_import_title,
-                                true),
+                                true, "import", IMPORT_PHASES,
+                                loadRates(host.getContext(), "import")),
                         text(host.getContext(),
                                 R.string.gboard_patches_extended_dictionary_import_failed),
                         (progress, cancel) -> importDocument(host.getContext(),
@@ -214,9 +215,32 @@ public final class GboardExtendedDictionarySettingsFeature
             boolean includeUntracked) {
         runInBackground(host,
                 new ExtendedDictionaryProgressDialog.Job(
-                        R.string.gboard_patches_extended_dictionary_progress_remove_title, false),
+                        R.string.gboard_patches_extended_dictionary_progress_remove_title, false,
+                        "remove", REMOVE_PHASES, loadRates(host.getContext(), "remove")),
                 text(host.getContext(), R.string.gboard_patches_extended_dictionary_remove_failed),
                 (progress, cancel) -> removeAll(host.getContext(), progress, includeUntracked));
+    }
+
+    /** Average size of one word-list line, used to size phases before the file is parsed. */
+    private static final int ESTIMATED_BYTES_PER_ROW = 50;
+    private static final List<PhasedEta.Phase> IMPORT_PHASES = java.util.Arrays.asList(
+            PhasedEta.Phase.PARSE, PhasedEta.Phase.REPAIR, PhasedEta.Phase.RECONCILE,
+            PhasedEta.Phase.DEDUPE,
+            PhasedEta.Phase.INSERT, PhasedEta.Phase.STORE_WRITE);
+    private static final List<PhasedEta.Phase> REMOVE_PHASES = java.util.Arrays.asList(
+            PhasedEta.Phase.REPAIR, PhasedEta.Phase.RECONCILE, PhasedEta.Phase.DELETE);
+
+    private static java.util.Map<PhasedEta.Phase, Double> loadRates(Context context,
+            String jobKind) {
+        try {
+            return PhasedEta.loadRates(etaPreferences(context), jobKind);
+        } catch (RuntimeException failure) {
+            return java.util.Collections.emptyMap();
+        }
+    }
+
+    private static android.content.SharedPreferences etaPreferences(Context context) {
+        return context.getSharedPreferences(ManagedEntryStore.PREF_FILE, Context.MODE_PRIVATE);
     }
 
     static ExtendedDictionaryProgressDialog.Job currentJob() {
@@ -232,12 +256,36 @@ public final class GboardExtendedDictionarySettingsFeature
         GboardPatchesSettingsContract.showManagedDialog(host,
                 ExtendedDictionaryProgressDialog.create(host.getContext(), job));
         Handler main = new Handler(Looper.getMainLooper());
-        ExtendedDictionaryImporter.Progress progress = (done, total) -> {
-            job.onProgress(done, total);
-            main.post(job::render);
+        Context context = host.getContext();
+        boolean[] outcome = {false};
+        ExtendedDictionaryImporter.JobProgress progress = new ExtendedDictionaryImporter
+                .JobProgress() {
+            @Override
+            public void expect(PhasedEta.Phase phase, long units) {
+                job.eta.expect(phase, units);
+            }
+
+            @Override
+            public void onProgress(PhasedEta.Phase phase, int done, int total) {
+                job.onProgress(phase, done, total);
+                main.post(job::render);
+            }
+
+            @Override
+            public void succeeded() {
+                outcome[0] = true;
+            }
         };
         WORKER.execute(() -> {
             String message = runSafely(() -> work.run(progress, job.cancel), failureMessage);
+            job.complete(outcome[0]);
+            try {
+                // Phases that ran to completion give the next job a device-specific rate.
+                PhasedEta.saveRates(etaPreferences(context), job.kind,
+                        job.eta.measuredRates());
+            } catch (RuntimeException failure) {
+                Log.w(TAG, "Could not store phase rates: " + failure.getClass().getName());
+            }
             job.finished = true;
             CURRENT_JOB.set(null);
             main.post(() -> finish(host, job, message));
@@ -270,15 +318,25 @@ public final class GboardExtendedDictionarySettingsFeature
     }
 
     String importDocument(Context context, byte[] data) {
-        return importDocument(context, data, (done, total) -> {
-        }, new AtomicBoolean());
+        return importDocument(context, data, ExtendedDictionaryImporter.JobProgress.only(
+                PhasedEta.Phase.INSERT, (done, total) -> {
+                }), new AtomicBoolean());
     }
 
     String importDocument(Context context, byte[] data,
-            ExtendedDictionaryImporter.Progress progress, AtomicBoolean cancel) {
+            ExtendedDictionaryImporter.JobProgress progress, AtomicBoolean cancel) {
         List<WordListParser.Row> rows;
         try {
-            rows = WordListParser.parse(data);
+            // The ring's phase weights are fixed at the first progress sample, so every phase
+            // gets its expected size now; row counts are estimated from the file size.
+            long estimatedRows = data.length / ESTIMATED_BYTES_PER_ROW;
+            progress.expect(PhasedEta.Phase.PARSE, data.length);
+            progress.expect(PhasedEta.Phase.REPAIR, 0);
+            progress.expect(PhasedEta.Phase.RECONCILE, Math.max(0, managedCount(context)));
+            progress.expect(PhasedEta.Phase.DEDUPE, estimatedRows);
+            progress.expect(PhasedEta.Phase.INSERT, estimatedRows);
+            progress.expect(PhasedEta.Phase.STORE_WRITE, estimatedRows);
+            rows = WordListParser.parse(data, progress.phase(PhasedEta.Phase.PARSE));
         } catch (WordListParser.ParseException failure) {
             return parseErrorMessage(context, failure);
         }
@@ -301,6 +359,7 @@ public final class GboardExtendedDictionarySettingsFeature
                 return text(context, R.string.gboard_patches_extended_dictionary_import_cancelled);
             }
             if (!result.rolledBack) {
+                progress.succeeded();
                 String done = GboardSettingsText.format(context,
                         R.string.gboard_patches_extended_dictionary_import_done,
                         result.inserted, result.skippedExisting, result.failed);
@@ -319,7 +378,7 @@ public final class GboardExtendedDictionarySettingsFeature
                             R.string.gboard_patches_extended_dictionary_import_forgotten,
                             result.forgotten);
                 }
-                return done;
+                return done + repairLine(context, result.repairedPos);
             }
             return result.rollbackLeftovers == 0
                     ? text(context, R.string.gboard_patches_extended_dictionary_import_rolled_back)
@@ -340,11 +399,16 @@ public final class GboardExtendedDictionarySettingsFeature
     }
 
     String removeAll(Context context, ExtendedDictionaryImporter.Progress progress) {
-        return removeAll(context, progress, false);
+        return removeAll(context, ExtendedDictionaryImporter.JobProgress.only(
+                PhasedEta.Phase.DELETE, progress), false);
     }
 
-    String removeAll(Context context, ExtendedDictionaryImporter.Progress progress,
+    String removeAll(Context context, ExtendedDictionaryImporter.JobProgress progress,
             boolean includeUntracked) {
+        int managed = Math.max(0, managedCount(context));
+        progress.expect(PhasedEta.Phase.REPAIR, 0);
+        progress.expect(PhasedEta.Phase.RECONCILE, managed);
+        progress.expect(PhasedEta.Phase.DELETE, managed);
         GboardPersonalDictionaryReflectionGateway gateway =
                 GboardPersonalDictionaryReflectionGateway.open(context, gboardClassLoader);
         if (gateway == null) {
@@ -356,18 +420,30 @@ public final class GboardExtendedDictionarySettingsFeature
                             includeUntracked);
             Log.i(TAG, "Remove deleted=" + result.deleted + " forgotten=" + result.forgotten
                     + " failed=" + result.failed + " orphans=" + result.orphansDeleted);
+            if (result.failed == 0) {
+                progress.succeeded();
+            }
             String done = GboardSettingsText.format(context,
                     R.string.gboard_patches_extended_dictionary_remove_done,
                     result.deleted, result.forgotten, result.failed);
-            return result.orphansDeleted == 0 ? done : done + "\n" + GboardSettingsText.format(
-                    context, R.string.gboard_patches_extended_dictionary_remove_orphans,
-                    result.orphansDeleted);
+            if (result.orphansDeleted > 0) {
+                done += "\n" + GboardSettingsText.format(context,
+                        R.string.gboard_patches_extended_dictionary_remove_orphans,
+                        result.orphansDeleted);
+            }
+            return done + repairLine(context, result.repairedPos);
         } catch (RuntimeException failure) {
             Log.w(TAG, "Remove failed: " + failure.getClass().getName());
             return text(context, R.string.gboard_patches_extended_dictionary_remove_failed);
         } finally {
             gateway.close();
         }
+    }
+
+    /** Extra toast line after Gboard's own Restore was undone; empty when nothing changed. */
+    private static String repairLine(Context context, int repaired) {
+        return repaired == 0 ? "" : "\n" + GboardSettingsText.format(context,
+                R.string.gboard_patches_extended_dictionary_repaired, repaired);
     }
 
     static String parseErrorMessage(Context context, WordListParser.ParseException failure) {
@@ -410,6 +486,6 @@ public final class GboardExtendedDictionarySettingsFeature
     }
 
     interface Work {
-        String run(ExtendedDictionaryImporter.Progress progress, AtomicBoolean cancel);
+        String run(ExtendedDictionaryImporter.JobProgress progress, AtomicBoolean cancel);
     }
 }
