@@ -674,6 +674,7 @@ class GboardPortProductCatalogContractTest {
             "enable_ocr_scan_text" to "version-sensitive",
             "enable_split_keyboard" to "version-sensitive",
             "english_qwerty_up_flick_uppercase" to "version-sensitive",
+            "extended_dictionary" to "version-sensitive",
             "flow_mode_animation" to "version-sensitive",
             "floating_web_search" to "version-sensitive",
             "frosted_glass" to "version-sensitive",

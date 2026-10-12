@@ -42,6 +42,7 @@ internal enum class RuntimeCallId(internal val encodedAbi: String) {
     CALCULATOR_RUNTIME_ON_INPUT_VIEW_STARTED("Ldev/jason/gboardpatches/extension/calculator/GboardCalculatorLifecycleRuntime;->onInputViewStarted(Ljava/lang/Object;)V"),
     CALCULATOR_RUNTIME_ON_SELECTION_UPDATED("Ldev/jason/gboardpatches/extension/calculator/GboardCalculatorLifecycleRuntime;->onSelectionUpdated(Ljava/lang/Object;Landroid/view/View;II)V"),
     CALCULATOR_RUNTIME_ON_INPUT_WINDOW_HIDDEN("Ldev/jason/gboardpatches/extension/calculator/GboardCalculatorLifecycleRuntime;->onInputWindowHidden()V"),
+    EXTENDED_DICTIONARY_RUNTIME_SECTION_TITLE("Ldev/jason/gboardpatches/extension/extendeddictionary/GboardExtendedDictionaryRuntime;->sectionTitle(Landroid/content/Context;Ljava/lang/Object;Ljava/lang/CharSequence;)Ljava/lang/CharSequence;"),
     FROSTED_GLASS_RUNTIME_ON_INPUT_VIEW_STARTED("Ldev/jason/gboardpatches/extension/frostedglass/GboardFrostedGlassLifecycleRuntime;->onInputViewStarted(Ljava/lang/Object;)V"),
     FROSTED_GLASS_RUNTIME_AFTER_CONFIGURE_WINDOW("Ldev/jason/gboardpatches/extension/frostedglass/GboardFrostedGlassLifecycleRuntime;->afterConfigureWindow(Landroid/view/Window;ZZ)V"),
     FROSTED_GLASS_RUNTIME_ON_INPUT_WINDOW_HIDDEN("Ldev/jason/gboardpatches/extension/frostedglass/GboardFrostedGlassLifecycleRuntime;->onInputWindowHidden(Ljava/lang/Object;)V"),
