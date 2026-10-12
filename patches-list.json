@@ -1,5 +1,5 @@
 {
-  "version": "3.12.0",
+  "version": "3.12.0-jp.1",
   "patches": [
     {
       "name": "AI Writing Tools",
@@ -230,6 +230,18 @@
       "options": []
     },
     {
+      "name": "Extended Dictionary",
+      "description": "以 Gboard 個人字典格式批次匯入單字，並可只移除由此匯入的單字。\nBulk import a word list in Gboard's personal dictionary format, and remove only the words it imported.",
+      "use": true,
+      "dependencies": [],
+      "compatiblePackages": {
+        "com.google.android.inputmethod.latin": [
+          "18.0.3.954559732-release-arm64-v8a"
+        ]
+      },
+      "options": []
+    },
+    {
       "name": "FTP Server",
       "description": "新增區域網路 FTP 伺服器，支援檔案瀏覽、傳輸與下載續傳\nAdd a LAN FTP server with file browsing, transfers, and download resume.",
       "use": true,
@@ -317,6 +329,18 @@
       "name": "Inline Suggestions",
       "description": "啟用 修正和建議 > 智慧撰寫\nEnable Text correction > Smart Compose.",
       "use": true,
+      "dependencies": [],
+      "compatiblePackages": {
+        "com.google.android.inputmethod.latin": [
+          "18.0.3.954559732-release-arm64-v8a"
+        ]
+      },
+      "options": []
+    },
+    {
+      "name": "Japanese QWERTY Glide",
+      "description": "在日文 QWERTY 鍵盤的 ABC 模式使用內建英文模型解碼滑行輸入的英文單字並傳送至 Mozc，附診斷日誌\nDecode glide-typed English words on the ABC layout of the Japanese QWERTY keyboard and pass them to Mozc. Uses the bundled English model; diagnostic logging enabled.",
+      "use": false,
       "dependencies": [],
       "compatiblePackages": {
         "com.google.android.inputmethod.latin": [

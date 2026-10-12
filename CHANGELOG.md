@@ -1,3 +1,17 @@
+## [3.12.0-jp.1](https://github.com/c-ardinal/Gboard-patches-jp/compare/v3.12.0...v3.12.0-jp.1) (2026-10-12)
+
+### ✨ New Features
+
+* **Gboard:** add Japanese localization to the Patches settings UI, which is now available in English, Traditional Chinese, and Japanese.
+* **Gboard:** add the `Japanese QWERTY Glide` patch, enabling glide typing of English words on the ABC layout of the Japanese keyboard (disabled by default).
+* **Gboard:** add the `Extended Dictionary` patch, bulk-importing word lists into the personal dictionary in separate "(Extended)" word-list sections and raising the Mozc user-dictionary cap to 1,000,000 entries. Ready-made Japanese word lists are available at [c-ardinal/gboard-extended-dictionary](https://github.com/c-ardinal/gboard-extended-dictionary).
+
+### ✨ 新功能
+
+* **Gboard:** Patches 設定介面新增日文在地化，現已支援英文、繁體中文與日文。
+* **Gboard:** 新增 `Japanese QWERTY Glide` Patch，可在日文鍵盤的 ABC 配置以滑行輸入英文單字（預設停用）。
+* **Gboard:** 新增 `Extended Dictionary` Patch，將單字清單批次匯入個人字典並放在獨立的「（擴充）」區段，同時將 Mozc 使用者字典上限提高至 1,000,000 筆。現成的日文單字清單請見 [c-ardinal/gboard-extended-dictionary](https://github.com/c-ardinal/gboard-extended-dictionary)。
+
 ## [3.12.0](https://github.com/jasonwu1994/Gboard-patches/compare/v3.11.0...v3.12.0) (2026-10-04)
 
 ### ✨ New Features
