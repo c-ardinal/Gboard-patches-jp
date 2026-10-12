@@ -107,6 +107,82 @@ public final class GboardPersonalDictionaryReflectionGatewayTest {
     }
 
     @Test
+    public void enabledLanguageCheckIsFailSoft() {
+        ClassLoader loader = getClass().getClassLoader();
+        GboardEnabledLanguages languages = GboardEnabledLanguages.resolve(loader,
+                FakeEnabledLanguages.class.getName(), FakeInputLanguage.class.getName(),
+                FakeLanguageTag.class.getName());
+        assertNotNull(languages);
+        FakeEnabledLanguages.enabled = Arrays.asList(
+                () -> FakeLanguageTag.g("en-US"), () -> FakeLanguageTag.g("ja-JP"));
+        GboardPersonalDictionaryReflectionGateway checked =
+                new GboardPersonalDictionaryReflectionGateway(helper, POS_TABLE, () -> {
+                }, tag -> tag, languages);
+
+        assertEquals(1, checked.countWithoutEnabledLanguage(Arrays.asList(
+                entry("w", "s", "en-US-x-extdict", ""),
+                entry("w", "s", "ja-JP-x-extdict", NOUN),
+                entry("w", "s", "en-GB-x-extdict", ""),
+                entry("w", "s", "", ""))));
+
+        FakeEnabledLanguages.enabled = Collections.emptyList();
+        assertEquals(-1, checked.countWithoutEnabledLanguage(
+                Collections.singletonList(entry("w", "s", "en-GB", ""))));
+        assertNull(GboardEnabledLanguages.resolve(loader, "missing.Languages",
+                FakeInputLanguage.class.getName(), FakeLanguageTag.class.getName()));
+        assertEquals(-1, gateway.countWithoutEnabledLanguage(
+                Collections.singletonList(entry("w", "s", "en-GB", ""))));
+    }
+
+    @Test
+    public void entriesRecordedUnderPlainJaJpByAnOlderBuildStayMatchedAndRemovable() {
+        long legacyId = userRow("犬", "いぬ", "ja-JP");
+        insertPos(legacyId, NOUN);
+        try (ManagedEntryStore store = ManagedEntryStore.open(context)) {
+            store.save(Collections.singletonList(new ManagedEntryStore.Entry(
+                    legacyId, "犬", "いぬ", "ja-JP", NOUN)));
+
+            ExtendedDictionaryImporter.ImportResult result = ExtendedDictionaryImporter.importRows(
+                    gateway, store, Collections.singletonList(
+                            new WordListParser.Row("ねこ", "猫", "ja-JP", "")));
+            assertEquals(0, result.forgotten);
+            assertEquals(2, store.count());
+
+            ExtendedDictionaryImporter.RemoveResult removed = ExtendedDictionaryImporter.removeAll(
+                    new GboardPersonalDictionaryReflectionGateway(helper, POS_TABLE, () -> {
+                    }, tag -> tag), store);
+            assertEquals(2, removed.deleted);
+            assertEquals(0, count("entry"));
+            assertEquals(0, count(POS_TABLE));
+        }
+    }
+
+    @Test
+    public void reimportedExtendedRowsKeepTagAndSkipOurs() {
+        String extended = ExtendedDictionaryImporter.EXTENDED_JA_TAG;
+        try (ManagedEntryStore store = ManagedEntryStore.open(context)) {
+            store.save(Collections.emptyList());
+            ExtendedDictionaryImporter.importRows(gateway, store, Collections.singletonList(
+                    new WordListParser.Row("いぬ", "犬", "ja-JP", "")));
+
+            ExtendedDictionaryImporter.ImportResult result = ExtendedDictionaryImporter.importRows(
+                    new GboardPersonalDictionaryReflectionGateway(helper, POS_TABLE, () -> {
+                    }, tag -> tag), store, Arrays.asList(
+                            new WordListParser.Row("いぬ", "犬", extended, NOUN),
+                            new WordListParser.Row("ねこ", "猫", extended, "")));
+
+            assertFalse(result.rolledBack);
+            assertEquals(1, result.inserted);
+            assertEquals(1, result.skippedExisting);
+            ManagedEntryStore.Entry added = store.load().get(1);
+            assertEquals(extended, added.localeTag);
+            assertEquals(NOUN, added.posTag);
+            assertEquals(NOUN, posTag(added.id));
+            assertEquals(2, count("entry"));
+        }
+    }
+
+    @Test
     public void rowidReusedAfterTheUserDeletedAManagedRowDoesNotBreakTheNextImport() {
         context.deleteDatabase(ManagedEntryStore.DATABASE_NAME);
         for (int index = 1; index <= 100; index++) {
@@ -139,6 +215,21 @@ public final class GboardPersonalDictionaryReflectionGatewayTest {
             assertEquals("newWord", reused.word);
             assertEquals(1, managed.stream().filter(entry -> entry.id == 200L).count());
         }
+    }
+
+    @Test
+    public void extendedJapaneseTagGetsPosRowsAndPosAwareMatching() {
+        String extended = ExtendedDictionaryImporter.EXTENDED_JA_TAG;
+        long[] ids = gateway.insertAll(Collections.singletonList(
+                entry("犬", "いぬ", extended, NOUN)), noProgress(), new AtomicBoolean());
+
+        assertEquals(NOUN, posTag(ids[0]));
+        assertTrue(gateway.exists(ids[0], "犬", "いぬ", extended, NOUN));
+        assertFalse(gateway.exists(ids[0], "犬", "いぬ", extended, ""));
+        gateway.deleteAll(Collections.singletonList(new ManagedEntryStore.Entry(
+                ids[0], "犬", "いぬ", extended, NOUN)), noProgress());
+        assertEquals(0, count("entry"));
+        assertEquals(0, count(POS_TABLE));
     }
 
     @Test
@@ -303,6 +394,36 @@ public final class GboardPersonalDictionaryReflectionGatewayTest {
 
         @Override
         public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        }
+    }
+
+    /** Stands in for Gboard's ort: a() returns the enabled input languages. */
+    public static final class FakeEnabledLanguages {
+        static List<FakeInputLanguage> enabled = Collections.emptyList();
+
+        public static List<FakeInputLanguage> a() {
+            return enabled;
+        }
+    }
+
+    /** Stands in for Gboard's oru: i() returns the language tag used for routing. */
+    public interface FakeInputLanguage {
+        FakeLanguageTag i();
+    }
+
+    /** Stands in for Gboard's rph: g = language, j = region. */
+    public static final class FakeLanguageTag {
+        public final String g;
+        public final String j;
+
+        private FakeLanguageTag(String language, String region) {
+            this.g = language;
+            this.j = region;
+        }
+
+        public static FakeLanguageTag g(String tag) {
+            String[] subtags = tag.split("-");
+            return new FakeLanguageTag(subtags[0], subtags.length > 1 ? subtags[1] : null);
         }
     }
 

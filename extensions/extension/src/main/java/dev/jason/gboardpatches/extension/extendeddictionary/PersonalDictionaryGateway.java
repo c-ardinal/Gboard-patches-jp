@@ -21,6 +21,12 @@ interface PersonalDictionaryGateway {
     void deleteAll(List<ManagedEntryStore.Entry> entries,
             ExtendedDictionaryImporter.Progress progress);
 
+    /**
+     * How many entries match no enabled input language by language and region (such rows reach
+     * no engine), or -1 when the enabled languages cannot be determined.
+     */
+    int countWithoutEnabledLanguage(List<ManagedEntryStore.Entry> entries);
+
     /** The language tag exactly as Gboard stores it in the locale column. */
     String normalizedTag(String localeTag);
 }

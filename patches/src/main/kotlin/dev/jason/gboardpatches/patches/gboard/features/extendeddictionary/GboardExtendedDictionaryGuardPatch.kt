@@ -15,11 +15,16 @@ internal val EXTENDED_DICTIONARY_RUNTIME_TARGETS = listOf(
     GboardMethodTarget(DATABASE, "<init>", listOf("Landroid/content/Context;"), "V"),
     GboardMethodTarget(DATABASE_BASE, "f", emptyList(), "V"),
     GboardMethodTarget(LANGUAGE_TAG, "g", listOf("Ljava/lang/String;"), LANGUAGE_TAG),
+    // Enabled input languages, read for the "no matching language" import warning only.
+    GboardMethodTarget("Lort;", "a", emptyList(), "Lvvw;"),
+    GboardMethodTarget("Loru;", "i", emptyList(), LANGUAGE_TAG),
 )
 
 internal val EXTENDED_DICTIONARY_RUNTIME_FIELDS = listOf(
     GboardFieldTarget(DATABASE_BASE, "a", "Ljava/lang/String;"),
     GboardFieldTarget(DATABASE_BASE, "b", "Lqcd;"),
+    GboardFieldTarget(LANGUAGE_TAG, "g", "Ljava/lang/String;"),
+    GboardFieldTarget(LANGUAGE_TAG, "j", "Ljava/lang/String;"),
 )
 
 internal val gboardExtendedDictionaryGuardPatch = bytecodePatch(

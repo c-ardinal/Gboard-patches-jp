@@ -825,6 +825,7 @@
         "patches/src/main/kotlin/dev/jason/gboardpatches/patches/gboard/features/extendeddictionary/GboardExtendedDictionaryFeatureMarkerPatch.kt",
         "patches/src/main/kotlin/dev/jason/gboardpatches/patches/gboard/features/extendeddictionary/GboardExtendedDictionaryGuardPatch.kt",
         "patches/src/main/kotlin/dev/jason/gboardpatches/patches/gboard/features/extendeddictionary/GboardExtendedDictionaryMozcCapPatch.kt",
+        "patches/src/main/kotlin/dev/jason/gboardpatches/patches/gboard/features/extendeddictionary/GboardExtendedDictionarySectionTitlePatch.kt",
         "patches/src/main/kotlin/dev/jason/gboardpatches/patches/gboard/registry/GboardPatchRegistry.kt"
       ],
       "contributions": [
@@ -834,7 +835,9 @@
           "phase": "dedicated",
           "order": 1960,
           "required_bindings": [],
-          "runtime_calls": []
+          "runtime_calls": [
+            "EXTENDED_DICTIONARY_RUNTIME_SECTION_TITLE"
+          ]
         }
       ]
     },

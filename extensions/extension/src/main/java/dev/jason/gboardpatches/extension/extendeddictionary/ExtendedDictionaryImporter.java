@@ -10,6 +10,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /** Adds rows without adopting existing ones, and removes only rows that still match. */
 final class ExtendedDictionaryImporter {
     static final String JAPANESE_LOCALE_TAG = "ja-JP";
+    /**
+     * Every imported row is stored under a BCP 47 private-use variant of its own tag (for example
+     * en-US-x-extdict). Gboard's word list then shows the imported words as their own language
+     * section (titled through GboardExtendedDictionaryRuntime) instead of mixing them into the
+     * user's list, while the language subtag still routes them to the same input engines.
+     * Rows already carrying the suffix (for example from a Gboard export) keep their tag; rows
+     * without a language (all languages) cannot carry a variant and are stored unchanged.
+     */
+    static final String EXTENDED_TAG_SUFFIX = "-x-extdict";
+    static final String EXTENDED_JA_TAG = JAPANESE_LOCALE_TAG + EXTENDED_TAG_SUFFIX;
     /** Gboard POS label for a noun; Mozc ignores ja-JP rows without a POS label. */
     static final String JAPANESE_DEFAULT_POS_TAG = new String(new int[] {0x540D, 0x8A5E}, 0, 2);
 
@@ -24,6 +34,8 @@ final class ExtendedDictionaryImporter {
         final int skippedReading;
         /** Stored entries dropped because the user deleted or edited them in Gboard. */
         final int forgotten;
+        /** Inserted rows matching no enabled input language (0 when that is unknown). */
+        final int unmatchedLanguage;
 
         ImportResult(int inserted, int skippedExisting, int failed, boolean rolledBack,
                 int rollbackLeftovers) {
@@ -33,11 +45,12 @@ final class ExtendedDictionaryImporter {
         ImportResult(int inserted, int skippedExisting, int failed, boolean rolledBack,
                 int rollbackLeftovers, boolean cancelled) {
             this(inserted, skippedExisting, failed, rolledBack, rollbackLeftovers, cancelled,
-                    0, 0);
+                    0, 0, 0);
         }
 
         private ImportResult(int inserted, int skippedExisting, int failed, boolean rolledBack,
-                int rollbackLeftovers, boolean cancelled, int skippedReading, int forgotten) {
+                int rollbackLeftovers, boolean cancelled, int skippedReading, int forgotten,
+                int unmatchedLanguage) {
             this.inserted = inserted;
             this.skippedExisting = skippedExisting;
             this.failed = failed;
@@ -46,16 +59,22 @@ final class ExtendedDictionaryImporter {
             this.cancelled = cancelled;
             this.skippedReading = skippedReading;
             this.forgotten = forgotten;
+            this.unmatchedLanguage = unmatchedLanguage;
         }
 
         ImportResult withSkippedReading(int count) {
             return new ImportResult(inserted, skippedExisting, failed, rolledBack,
-                    rollbackLeftovers, cancelled, count, forgotten);
+                    rollbackLeftovers, cancelled, count, forgotten, unmatchedLanguage);
         }
 
         ImportResult withForgotten(int count) {
             return new ImportResult(inserted, skippedExisting, failed, rolledBack,
-                    rollbackLeftovers, cancelled, skippedReading, count);
+                    rollbackLeftovers, cancelled, skippedReading, count, unmatchedLanguage);
+        }
+
+        ImportResult withUnmatchedLanguage(int count) {
+            return new ImportResult(inserted, skippedExisting, failed, rolledBack,
+                    rollbackLeftovers, cancelled, skippedReading, forgotten, Math.max(0, count));
         }
     }
 
@@ -121,15 +140,57 @@ final class ExtendedDictionaryImporter {
         List<WordListParser.Row> accepted = new ArrayList<>(rows.size());
         for (WordListParser.Row row : rows) {
             if (!isJapanese(row) || isMozcReading(row.shortcut)) {
-                accepted.add(row);
+                accepted.add(withExtendedTag(gateway, row));
             }
         }
         return importAccepted(gateway, store, accepted, progress, cancel)
                 .withSkippedReading(rows.size() - accepted.size());
     }
 
+    static boolean isExtendedTag(String localeTag) {
+        return localeTag != null && localeTag.regionMatches(true,
+                localeTag.length() - EXTENDED_TAG_SUFFIX.length(), EXTENDED_TAG_SUFFIX, 0,
+                EXTENDED_TAG_SUFFIX.length());
+    }
+
+    private static WordListParser.Row withExtendedTag(PersonalDictionaryGateway gateway,
+            WordListParser.Row row) {
+        if (row.localeTag.isEmpty() || isExtendedTag(row.localeTag)) {
+            return row;
+        }
+        return new WordListParser.Row(row.shortcut, row.word,
+                gateway.normalizedTag(row.localeTag) + EXTENDED_TAG_SUFFIX, row.posTag);
+    }
+
     private static boolean isJapanese(WordListParser.Row row) {
-        return JAPANESE_LOCALE_TAG.equalsIgnoreCase(row.localeTag.replace('_', '-'));
+        return isJapaneseLanguage(row.localeTag);
+    }
+
+    /** True when the tag's language subtag is "ja" (ja, ja-JP, ja-JP-x-extdict, ...). */
+    static boolean isJapaneseLanguage(String localeTag) {
+        if (localeTag == null) {
+            return false;
+        }
+        int end = localeTag.indexOf('-');
+        int underscore = localeTag.indexOf('_');
+        if (end < 0 || (underscore >= 0 && underscore < end)) {
+            end = underscore;
+        }
+        return (end < 0 ? localeTag : localeTag.substring(0, end)).equalsIgnoreCase("ja");
+    }
+
+    /** True when (word, reading) already exists under the original tag or under our own. */
+    private static boolean containsOriginalOrExtended(PersonalDictionaryGateway gateway,
+            WordListParser.Row row) {
+        if (gateway.contains(row.word, row.shortcut, row.localeTag)) {
+            return true;
+        }
+        if (!isExtendedTag(row.localeTag)) {
+            return false;
+        }
+        String original = row.localeTag.substring(
+                0, row.localeTag.length() - EXTENDED_TAG_SUFFIX.length());
+        return gateway.contains(row.word, row.shortcut, original);
     }
 
     /**
@@ -179,7 +240,7 @@ final class ExtendedDictionaryImporter {
         for (WordListParser.Row row : rows) {
             String key = row.word + '\u0000' + row.shortcut + '\u0000'
                     + gateway.normalizedTag(row.localeTag);
-            if (!seen.add(key) || gateway.contains(row.word, row.shortcut, row.localeTag)) {
+            if (!seen.add(key) || containsOriginalOrExtended(gateway, row)) {
                 skipped++;
                 continue;
             }
@@ -219,7 +280,9 @@ final class ExtendedDictionaryImporter {
             }
             store.save(verified);
             return new ImportResult(verified.size() - existing.size(), skipped, failed,
-                    false, 0).withForgotten(forgotten);
+                    false, 0).withForgotten(forgotten).withUnmatchedLanguage(
+                            countWithoutEnabledLanguage(gateway,
+                                    verified.subList(existing.size(), verified.size())));
         } catch (RuntimeException failure) {
             return new ImportResult(0, skipped, 0, true, rollBack(gateway, inserted));
         }
@@ -258,6 +321,16 @@ final class ExtendedDictionaryImporter {
         }
         store.save(remaining);
         return new RemoveResult(deleted, forgotten, remaining.size());
+    }
+
+    /** Informational only: never fails an import that has already been committed. */
+    private static int countWithoutEnabledLanguage(PersonalDictionaryGateway gateway,
+            List<ManagedEntryStore.Entry> inserted) {
+        try {
+            return inserted.isEmpty() ? 0 : gateway.countWithoutEnabledLanguage(inserted);
+        } catch (RuntimeException failure) {
+            return -1;
+        }
     }
 
     private static int rollBack(PersonalDictionaryGateway gateway,

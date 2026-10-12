@@ -52,7 +52,7 @@ public final class ExtendedDictionaryImporterTest {
         assertEquals(2, result.skippedReading);
         assertEquals(0, result.skippedExisting);
         assertFalse(gateway.contains("構築", "構築", "ja-JP"));
-        assertTrue(gateway.contains("構築", "構築", "zh-TW"));
+        assertTrue(gateway.contains("構築", "構築", "zh-TW-x-extdict"));
     }
 
     @Test
@@ -163,7 +163,81 @@ public final class ExtendedDictionaryImporterTest {
     public void japaneseDefaultPosToleratesTagCaseAndUnderscore() {
         assertEquals(NOUN, ExtendedDictionaryImporter.posTagFor(row("a", "A", "ja-jp", "")));
         assertEquals(NOUN, ExtendedDictionaryImporter.posTagFor(row("a", "A", "ja_JP", "")));
-        assertEquals("", ExtendedDictionaryImporter.posTagFor(row("a", "A", "ja", "")));
+        assertEquals(NOUN, ExtendedDictionaryImporter.posTagFor(row("a", "A", "ja", "")));
+        assertEquals(NOUN, ExtendedDictionaryImporter.posTagFor(
+                row("a", "A", ExtendedDictionaryImporter.EXTENDED_JA_TAG, "")));
+        assertEquals("", ExtendedDictionaryImporter.posTagFor(row("a", "A", "jam", "")));
+        assertTrue(ExtendedDictionaryImporter.isJapaneseLanguage("ja_JP"));
+        assertFalse(ExtendedDictionaryImporter.isJapaneseLanguage("en-JA"));
+        assertFalse(ExtendedDictionaryImporter.isJapaneseLanguage(""));
+    }
+
+    @Test
+    public void everyLanguageMovesToItsExtendedTagOnceAndSkipsUserRowsUnderTheOriginal() {
+        gateway.addUserRow("Hund", "", "de", "");
+
+        ExtendedDictionaryImporter.ImportResult result = ExtendedDictionaryImporter.importRows(
+                gateway, store, Arrays.asList(
+                        row("", "Hund", "de", ""),
+                        row("omw", "On my way!", "en-US", ""),
+                        row("brb", "Be right back", "en-US-x-extdict", ""),
+                        row("brb", "Be right back", "en-US", ""),
+                        row("", "Everywhere", "", "")));
+
+        assertEquals(3, result.inserted);
+        assertEquals(2, result.skippedExisting);
+        List<String> tags = store.load().stream().map(entry -> entry.localeTag).toList();
+        assertEquals(Arrays.asList("en-US-x-extdict", "en-US-x-extdict", ""), tags);
+        assertTrue(ExtendedDictionaryImporter.isExtendedTag("EN-us-X-EXTDICT"));
+        assertFalse(ExtendedDictionaryImporter.isExtendedTag("en-US"));
+        assertFalse(ExtendedDictionaryImporter.isExtendedTag("x-extdict"));
+    }
+
+    @Test
+    public void reportsInsertedRowsWithoutAnEnabledLanguageOnlyWhenKnown() {
+        List<WordListParser.Row> rows = Arrays.asList(
+                row("omw", "On my way!", "en-US", ""),
+                row("tc", "Take care", "en-GB", ""),
+                row("", "Everywhere", "", ""));
+
+        assertEquals(0, ExtendedDictionaryImporter.importRows(gateway, store, rows)
+                .unmatchedLanguage);
+
+        gateway.rows.clear();
+        store.save(Collections.emptyList());
+        gateway.enabledLanguageRegions = new java.util.HashSet<>(Arrays.asList("en-US", "ja-JP"));
+        ExtendedDictionaryImporter.ImportResult result =
+                ExtendedDictionaryImporter.importRows(gateway, store, rows);
+
+        assertEquals(3, result.inserted);
+        assertEquals(1, result.unmatchedLanguage);
+    }
+
+    @Test
+    public void japaneseRowsMoveToTheExtendedTagButNeverDuplicateAUsersJapaneseEntry() {
+        String extended = ExtendedDictionaryImporter.EXTENDED_JA_TAG;
+        long userId = gateway.addUserRow("犬", "いぬ", "ja-JP", "");
+
+        ExtendedDictionaryImporter.ImportResult result = ExtendedDictionaryImporter.importRows(
+                gateway, store, Arrays.asList(
+                        row("いぬ", "犬", "ja-JP", ""),
+                        row("ねこ", "猫", "ja-jp", ""),
+                        row("cat", "Cat", "en-US", "")));
+
+        assertEquals(2, result.inserted);
+        assertEquals(1, result.skippedExisting);
+        List<ManagedEntryStore.Entry> managed = store.load();
+        assertEquals(extended, managed.get(0).localeTag);
+        assertEquals(NOUN, managed.get(0).posTag);
+        assertEquals("en-US-x-extdict", managed.get(1).localeTag);
+        assertTrue(gateway.contains("猫", "ねこ", extended));
+        assertFalse(gateway.contains("猫", "ねこ", "ja-JP"));
+        assertEquals(1, gateway.rows.values().stream()
+                .filter(row -> row[0].equals("犬")).count());
+        assertTrue(gateway.rows.containsKey(userId));
+
+        assertEquals(0, ExtendedDictionaryImporter.importRows(gateway, store,
+                Collections.singletonList(row("ねこ", "猫", "ja-JP", ""))).inserted);
     }
 
     @Test
@@ -295,6 +369,7 @@ public final class ExtendedDictionaryImporterTest {
         final List<Long> deletedIds = new ArrayList<>();
         RuntimeException failure;
         long[] forcedIds;
+        java.util.Set<String> enabledLanguageRegions;
         boolean failDeletes;
         int insertBatches;
         private long nextId = 100L;
@@ -351,6 +426,22 @@ public final class ExtendedDictionaryImporterTest {
                 rows.remove(entries.get(index).id);
                 progress.onProgress(index + 1, entries.size());
             }
+        }
+
+        @Override
+        public int countWithoutEnabledLanguage(List<ManagedEntryStore.Entry> entries) {
+            if (enabledLanguageRegions == null) {
+                return -1;
+            }
+            int unmatched = 0;
+            for (ManagedEntryStore.Entry entry : entries) {
+                String[] subtags = entry.localeTag.split("-");
+                String key = subtags[0] + "-" + (subtags.length > 1 ? subtags[1] : "");
+                if (!entry.localeTag.isEmpty() && !enabledLanguageRegions.contains(key)) {
+                    unmatched++;
+                }
+            }
+            return unmatched;
         }
 
         @Override

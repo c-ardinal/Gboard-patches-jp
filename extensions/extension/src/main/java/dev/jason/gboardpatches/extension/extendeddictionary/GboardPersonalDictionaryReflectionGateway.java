@@ -31,6 +31,8 @@ final class GboardPersonalDictionaryReflectionGateway
     private static final String DATABASE_CLASS = "qcj";
     private static final String DATABASE_BASE_CLASS = "qcg";
     private static final String LANGUAGE_TAG_CLASS = "rph";
+    private static final String ENABLED_LANGUAGES_CLASS = "ort";
+    private static final String INPUT_LANGUAGE_CLASS = "oru";
     static final String ENTRY_TABLE = "entry";
     private static final List<String> ENTRY_COLUMNS =
             Arrays.asList("_id", "word", "shortcut", "locale");
@@ -54,12 +56,21 @@ final class GboardPersonalDictionaryReflectionGateway
     private Set<String> rowKeys;
     private boolean rowsStale;
 
+    private final GboardEnabledLanguages enabledLanguages;
+
     GboardPersonalDictionaryReflectionGateway(SQLiteOpenHelper helper, String posTable,
             Runnable changeNotifier, TagNormalizer tagNormalizer) {
+        this(helper, posTable, changeNotifier, tagNormalizer, null);
+    }
+
+    GboardPersonalDictionaryReflectionGateway(SQLiteOpenHelper helper, String posTable,
+            Runnable changeNotifier, TagNormalizer tagNormalizer,
+            GboardEnabledLanguages enabledLanguages) {
         this.helper = helper;
         this.posTable = posTable;
         this.changeNotifier = changeNotifier;
         this.tagNormalizer = tagNormalizer;
+        this.enabledLanguages = enabledLanguages;
     }
 
     static boolean isSupported(ClassLoader classLoader) {
@@ -69,10 +80,16 @@ final class GboardPersonalDictionaryReflectionGateway
     /** Returns null when this Gboard build does not expose the expected API or schema. */
     static GboardPersonalDictionaryReflectionGateway open(Context context,
             ClassLoader classLoader) {
-        return open(context, preflight(classLoader));
+        return open(context, preflight(classLoader), GboardEnabledLanguages.resolve(
+                classLoader, ENABLED_LANGUAGES_CLASS, INPUT_LANGUAGE_CLASS, LANGUAGE_TAG_CLASS));
     }
 
     static GboardPersonalDictionaryReflectionGateway open(Context context, Api api) {
+        return open(context, api, null);
+    }
+
+    static GboardPersonalDictionaryReflectionGateway open(Context context, Api api,
+            GboardEnabledLanguages enabledLanguages) {
         if (api == null || context == null) {
             return null;
         }
@@ -83,7 +100,8 @@ final class GboardPersonalDictionaryReflectionGateway
                     (SQLiteOpenHelper) api.helperField.get(database),
                     (String) api.posTableField.get(null),
                     () -> invoke(api.notifyChanged, null),
-                    tag -> String.valueOf(invoke(api.fromTag, null, tag)));
+                    tag -> String.valueOf(invoke(api.fromTag, null, tag)),
+                    enabledLanguages);
             if (gateway.hasExpectedSchema()) {
                 return gateway;
             }
@@ -178,7 +196,7 @@ final class GboardPersonalDictionaryReflectionGateway
             loadRows();
         }
         String tag = normalizedTag(localeTag);
-        String expectedPos = ExtendedDictionaryImporter.JAPANESE_LOCALE_TAG.equals(tag)
+        String expectedPos = ExtendedDictionaryImporter.isJapaneseLanguage(tag)
                 ? posTag : "";
         return (key(word, shortcut, tag) + '\u0000' + nonNull(expectedPos))
                 .equals(rowsById.get(id));
@@ -202,7 +220,7 @@ final class GboardPersonalDictionaryReflectionGateway
                 row.put("shortcut", entry.shortcut);
                 row.put("locale", localeTag);
                 ids[index] = db.insertOrThrow(ENTRY_TABLE, null, row);
-                if (ExtendedDictionaryImporter.JAPANESE_LOCALE_TAG.equals(localeTag)
+                if (ExtendedDictionaryImporter.isJapaneseLanguage(localeTag)
                         && !entry.posTag.isEmpty()) {
                     ContentValues pos = new ContentValues();
                     pos.put("_id", ids[index]);
@@ -288,6 +306,31 @@ final class GboardPersonalDictionaryReflectionGateway
         rowsById = byId;
         rowKeys = keys;
         rowsStale = false;
+    }
+
+    @Override
+    public int countWithoutEnabledLanguage(List<ManagedEntryStore.Entry> entries) {
+        if (enabledLanguages == null) {
+            return -1;
+        }
+        Set<String> enabled = enabledLanguages.enabledKeys();
+        if (enabled == null) {
+            return -1;
+        }
+        try {
+            int unmatched = 0;
+            for (ManagedEntryStore.Entry entry : entries) {
+                // Rows without a language (all languages) are routed to every engine.
+                if (!entry.localeTag.isEmpty() && !enabled.contains(
+                        enabledLanguages.keyOfTag(normalizedTag(entry.localeTag)))) {
+                    unmatched++;
+                }
+            }
+            return unmatched;
+        } catch (ReflectiveOperationException | RuntimeException failure) {
+            Log.w(TAG, "Enabled language check failed: " + failure.getClass().getName());
+            return -1;
+        }
     }
 
     @Override

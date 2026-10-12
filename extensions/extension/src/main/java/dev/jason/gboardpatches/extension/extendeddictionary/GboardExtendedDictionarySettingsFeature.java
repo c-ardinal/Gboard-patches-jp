@@ -234,6 +234,11 @@ public final class GboardExtendedDictionarySettingsFeature
                             R.string.gboard_patches_extended_dictionary_import_skipped_reading,
                             result.skippedReading);
                 }
+                if (result.unmatchedLanguage > 0) {
+                    done += "\n" + GboardSettingsText.format(context,
+                            R.string.gboard_patches_extended_dictionary_import_unmatched_language,
+                            result.unmatchedLanguage);
+                }
                 if (result.forgotten > 0) {
                     done += "\n" + GboardSettingsText.format(context,
                             R.string.gboard_patches_extended_dictionary_import_forgotten,

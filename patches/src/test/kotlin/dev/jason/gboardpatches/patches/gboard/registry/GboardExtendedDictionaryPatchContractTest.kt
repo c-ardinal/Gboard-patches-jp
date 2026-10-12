@@ -3,9 +3,15 @@ package dev.jason.gboardpatches.patches.gboard.registry
 import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod.Companion.toMutable
 import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.Opcode
+import com.android.tools.smali.dexlib2.iface.instruction.FiveRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction
 import com.android.tools.smali.dexlib2.iface.instruction.NarrowLiteralInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
+import com.android.tools.smali.dexlib2.iface.reference.MethodReference
+import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction11x
+import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction35c
+import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodImplementation
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodParameter
@@ -23,6 +29,11 @@ import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.gboard
 import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.gboardExtendedDictionaryGuardPatch
 import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.gboardExtendedDictionaryMozcCapPatch
 import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.raiseMozcShortcutCap
+import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.EXTENDED_DICTIONARY_SECTION_TITLE_TARGET
+import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.applySectionTitleHook
+import dev.jason.gboardpatches.patches.gboard.features.extendeddictionary.gboardExtendedDictionarySectionTitlePatch
+import dev.jason.gboardpatches.patches.gboard.shared.runtimeabi.RuntimeAbiCatalog
+import dev.jason.gboardpatches.patches.gboard.shared.runtimeabi.RuntimeCallId
 import dev.jason.gboardpatches.patches.gboard.shared.gboardPatchesSettingsPatch
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
@@ -102,6 +113,97 @@ class GboardExtendedDictionaryPatchContractTest {
         }
     }
 
+    @Test
+    fun `section title hook targets qcb b and calls the declared runtime`() {
+        assertEquals(
+            "Lqcb;->b(Landroid/content/Context;Lorw;Lrph;)Ljava/lang/CharSequence;",
+            EXTENDED_DICTIONARY_SECTION_TITLE_TARGET.reference,
+        )
+        assertEquals(
+            "Ldev/jason/gboardpatches/extension/extendeddictionary/GboardExtendedDictionaryRuntime;" +
+                "->sectionTitle(Landroid/content/Context;Ljava/lang/Object;Ljava/lang/CharSequence;)" +
+                "Ljava/lang/CharSequence;",
+            RuntimeAbiCatalog.abi(RuntimeCallId.EXTENDED_DICTIONARY_RUNTIME_SECTION_TITLE).reference,
+        )
+    }
+
+    @Test
+    fun `section title hook parks the label in v0 and returns the runtime result`() {
+        val method = sectionTitleMethod(
+            ImmutableInstruction11x(Opcode.MOVE_RESULT_OBJECT, 1),
+            ImmutableInstruction11x(Opcode.RETURN_OBJECT, 1),
+        )
+
+        method.applySectionTitleHook()
+
+        val instructions = method.implementation!!.instructions.toList()
+        assertEquals(
+            listOf(
+                Opcode.INVOKE_STATIC,
+                Opcode.MOVE_RESULT_OBJECT,
+                Opcode.INVOKE_STATIC,
+                Opcode.MOVE_RESULT_OBJECT,
+                Opcode.RETURN_OBJECT,
+            ),
+            instructions.map { it.opcode },
+        )
+        assertEquals(0, (instructions[1] as OneRegisterInstruction).registerA)
+        val runtime = instructions[2] as FiveRegisterInstruction
+        assertEquals(listOf(1, 3, 0), listOf(runtime.registerC, runtime.registerD, runtime.registerE))
+        assertEquals(3, runtime.registerCount)
+        assertEquals(
+            RuntimeAbiCatalog.abi(RuntimeCallId.EXTENDED_DICTIONARY_RUNTIME_SECTION_TITLE).reference,
+            ((instructions[2] as ReferenceInstruction).reference as MethodReference).toString(),
+        )
+        assertEquals(1, (instructions[3] as OneRegisterInstruction).registerA)
+        assertEquals(1, (instructions[4] as OneRegisterInstruction).registerA)
+    }
+
+    @Test
+    fun `section title hook fails closed on an unexpected tail`() {
+        assertThrows(IllegalStateException::class.java) {
+            sectionTitleMethod(
+                ImmutableInstruction11x(Opcode.MOVE_RESULT_OBJECT, 2),
+                ImmutableInstruction11x(Opcode.RETURN_OBJECT, 2),
+            ).applySectionTitleHook()
+        }
+        assertThrows(IllegalStateException::class.java) {
+            sectionTitleMethod(
+                ImmutableInstruction11x(Opcode.MOVE_RESULT_OBJECT, 1),
+                ImmutableInstruction11x(Opcode.MONITOR_ENTER, 1),
+                ImmutableInstruction11x(Opcode.RETURN_OBJECT, 1),
+            ).applySectionTitleHook()
+        }
+    }
+
+    private fun sectionTitleMethod(vararg tail: Instruction) = ImmutableMethod(
+        "Lqcb;",
+        "b",
+        listOf("Landroid/content/Context;", "Lorw;", "Lrph;").map { type ->
+            ImmutableMethodParameter(type, null, null)
+        },
+        "Ljava/lang/CharSequence;",
+        AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
+        null,
+        null,
+        ImmutableMethodImplementation(
+            4,
+            listOf<Instruction>(
+                ImmutableInstruction35c(
+                    Opcode.INVOKE_STATIC, 3, 1, 2, 3, 0, 0,
+                    ImmutableMethodReference(
+                        "Lotq;",
+                        "b",
+                        listOf("Landroid/content/Context;", "Lorw;", "Lrph;"),
+                        "Ljava/lang/CharSequence;",
+                    ),
+                ),
+            ) + tail.toList(),
+            null,
+            null,
+        ),
+    ).toMutable()
+
     private fun mozcCapMethod(vararg instructions: Instruction) = ImmutableMethod(
         "Liam;",
         "b",
@@ -125,6 +227,7 @@ class GboardExtendedDictionaryPatchContractTest {
                 gboardExtendedDictionaryFeatureMarkerPatch,
                 gboardExtendedDictionaryGuardPatch,
                 gboardExtendedDictionaryMozcCapPatch,
+                gboardExtendedDictionarySectionTitlePatch,
             ),
             patch.dependencies,
         )
@@ -140,7 +243,10 @@ class GboardExtendedDictionaryPatchContractTest {
         val contribution = feature.getAsJsonArray("contributions").single().asJsonObject
         assertEquals("dedicated_bytecode", contribution["anchor_family_id"].asString)
         assertTrue(contribution.getAsJsonArray("required_bindings").isEmpty)
-        assertTrue(contribution.getAsJsonArray("runtime_calls").isEmpty)
+        assertEquals(
+            listOf(RuntimeCallId.EXTENDED_DICTIONARY_RUNTIME_SECTION_TITLE.name),
+            contribution.getAsJsonArray("runtime_calls").map { it.asString },
+        )
     }
 
     @Test
@@ -150,15 +256,22 @@ class GboardExtendedDictionaryPatchContractTest {
                 "Lqcj;-><init>(Landroid/content/Context;)V",
                 "Lqcg;->f()V",
                 "Lrph;->g(Ljava/lang/String;)Lrph;",
+                "Lort;->a()Lvvw;",
+                "Loru;->i()Lrph;",
             ),
             EXTENDED_DICTIONARY_RUNTIME_TARGETS.map { target -> target.reference },
         )
         assertEquals(
-            listOf("Lqcg;->a:Ljava/lang/String;", "Lqcg;->b:Lqcd;"),
+            listOf(
+                "Lqcg;->a:Ljava/lang/String;",
+                "Lqcg;->b:Lqcd;",
+                "Lrph;->g:Ljava/lang/String;",
+                "Lrph;->j:Ljava/lang/String;",
+            ),
             EXTENDED_DICTIONARY_RUNTIME_FIELDS.map { target -> target.reference },
         )
         val gateway = Files.readString(repositoryRoot.resolve(GATEWAY_PATH), StandardCharsets.UTF_8)
-        listOf("\"qcj\"", "\"qcg\"", "\"rph\"").forEach { name ->
+        listOf("\"qcj\"", "\"qcg\"", "\"rph\"", "\"ort\"", "\"oru\"").forEach { name ->
             assertTrue("Gateway must resolve $name", gateway.contains(name))
         }
     }

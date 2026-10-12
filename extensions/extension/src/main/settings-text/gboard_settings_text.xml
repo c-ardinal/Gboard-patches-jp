@@ -3242,6 +3242,10 @@
         <translation locale="en">The personal dictionary of this Gboard build is not supported. Import and removal are disabled.</translation>
         <translation locale="zh-Hant">不支援此 Gboard 版本的個人字典，已停用匯入與移除。</translation>
     </string>
+    <string name="gboard_patches_extended_dictionary_language_title">
+        <translation locale="en">%1$s (Extended)</translation>
+        <translation locale="zh-Hant">%1$s（擴充）</translation>
+    </string>
     <string name="gboard_patches_extended_dictionary_section_title">
         <translation locale="en">Word list</translation>
         <translation locale="zh-Hant">單字清單</translation>
@@ -3309,6 +3313,10 @@
     <string name="gboard_patches_extended_dictionary_import_skipped_reading">
         <translation locale="en">%1$d rows skipped: reading not accepted by Mozc</translation>
         <translation locale="zh-Hant">已略過 %1$d 列：Mozc 不接受其讀音</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_import_unmatched_language">
+        <translation locale="en">%1$d words match no enabled language</translation>
+        <translation locale="zh-Hant">%1$d 個單字沒有對應的已啟用語言</translation>
     </string>
     <string name="gboard_patches_extended_dictionary_import_forgotten">
         <translation locale="en">%1$d imported words were changed or deleted in Gboard and are no longer tracked</translation>
