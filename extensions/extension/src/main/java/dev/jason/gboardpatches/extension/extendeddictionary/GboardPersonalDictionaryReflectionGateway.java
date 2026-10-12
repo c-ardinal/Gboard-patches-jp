@@ -12,9 +12,12 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -52,9 +55,7 @@ final class GboardPersonalDictionaryReflectionGateway
     private final Runnable changeNotifier;
     private final TagNormalizer tagNormalizer;
     private final Map<String, String> normalizedTags = new HashMap<>();
-    private Map<Long, String> rowsById;
     private Set<String> rowKeys;
-    private boolean rowsStale;
 
     private final GboardEnabledLanguages enabledLanguages;
 
@@ -192,14 +193,80 @@ final class GboardPersonalDictionaryReflectionGateway
     @Override
     public boolean exists(long id, String word, String shortcut, String localeTag,
             String posTag) {
-        if (rowsById == null || rowsStale) {
-            loadRows();
+        try (Cursor cursor = helper.getReadableDatabase().rawQuery(
+                joinedRowsQuery() + " WHERE entry._id = ?", new String[] {String.valueOf(id)})) {
+            return cursor.moveToNext() && rowMatches(cursor,
+                    new ManagedEntryStore.Entry(id, word, shortcut, localeTag, posTag));
         }
-        String tag = normalizedTag(localeTag);
+    }
+
+    /**
+     * Streams the table once in rowid order and merges it with the entries sorted by id, so
+     * checking hundreds of thousands of entries needs no in-memory copy of the dictionary.
+     */
+    @Override
+    public Set<Long> matchingIds(List<ManagedEntryStore.Entry> entries) {
+        Set<Long> matching = new HashSet<>();
+        List<ManagedEntryStore.Entry> sorted = new ArrayList<>(entries);
+        sorted.sort((left, right) -> Long.compare(left.id, right.id));
+        merge(sorted.iterator(), (entry, matches) -> {
+            if (matches) {
+                matching.add(entry.id);
+            }
+        });
+        return matching;
+    }
+
+    @Override
+    public Set<Long> mismatchedIds(Iterator<ManagedEntryStore.Entry> entriesById) {
+        Set<Long> mismatched = new HashSet<>();
+        merge(entriesById, (entry, matches) -> {
+            if (!matches) {
+                mismatched.add(entry.id);
+            }
+        });
+        return mismatched;
+    }
+
+    private interface MergeVisitor {
+        void visit(ManagedEntryStore.Entry entry, boolean matches);
+    }
+
+    /** Walks entries (ascending id) against one rowid-ordered cursor over the dictionary. */
+    private void merge(Iterator<ManagedEntryStore.Entry> entriesById, MergeVisitor visitor) {
+        if (!entriesById.hasNext()) {
+            return;
+        }
+        ManagedEntryStore.Entry entry = entriesById.next();
+        try (Cursor cursor = helper.getReadableDatabase().rawQuery(
+                joinedRowsQuery() + " WHERE entry._id >= ? ORDER BY entry._id",
+                new String[] {String.valueOf(entry.id)})) {
+            boolean rowAvailable = cursor.moveToNext();
+            while (entry != null) {
+                while (rowAvailable && cursor.getLong(0) < entry.id) {
+                    rowAvailable = cursor.moveToNext();
+                }
+                visitor.visit(entry, rowAvailable && cursor.getLong(0) == entry.id
+                        && rowMatches(cursor, entry));
+                entry = entriesById.hasNext() ? entriesById.next() : null;
+            }
+        }
+    }
+
+    /** Same LEFT JOIN as Gboard's own qcj.c() reader: _id, word, shortcut, locale, pos_tag. */
+    private String joinedRowsQuery() {
+        String pos = quoted(posTable);
+        return "SELECT entry._id, word, shortcut, locale, " + pos + ".pos_tag FROM entry"
+                + " LEFT JOIN " + pos + " ON entry._id = " + pos + "._id";
+    }
+
+    private boolean rowMatches(Cursor cursor, ManagedEntryStore.Entry entry) {
+        String tag = normalizedTag(entry.localeTag);
         String expectedPos = ExtendedDictionaryImporter.isJapaneseLanguage(tag)
-                ? posTag : "";
-        return (key(word, shortcut, tag) + '\u0000' + nonNull(expectedPos))
-                .equals(rowsById.get(id));
+                ? entry.posTag : "";
+        return key(entry.word, entry.shortcut, tag).equals(
+                key(cursor.getString(1), cursor.getString(2), cursor.getString(3)))
+                && nonNull(expectedPos).equals(nonNull(cursor.getString(4)));
     }
 
     @Override
@@ -241,7 +308,11 @@ final class GboardPersonalDictionaryReflectionGateway
         } finally {
             db.endTransaction();
         }
-        rowsStale = true;
+        if (rowKeys != null) {
+            for (ManagedEntryStore.Entry entry : entries) {
+                rowKeys.add(key(entry.word, entry.shortcut, normalizedTag(entry.localeTag)));
+            }
+        }
         notifyChanged();
         return ids;
     }
@@ -265,8 +336,97 @@ final class GboardPersonalDictionaryReflectionGateway
         } finally {
             db.endTransaction();
         }
-        rowsStale = true;
+        // rowKeys may now over-report deleted rows, which only errs towards skipping.
         notifyChanged();
+    }
+
+    @Override
+    public int[] deleteImported(Iterator<ManagedEntryStore.Entry> managedById, Set<Long> keepIds,
+            Set<Long> releasedIds, boolean includeUntracked,
+            ExtendedDictionaryImporter.Progress progress, int total) {
+        int managed = 0;
+        int untracked = 0;
+        SQLiteDatabase db = helper.getWritableDatabase();
+        db.beginTransaction();
+        try {
+            while (managedById.hasNext()) {
+                ManagedEntryStore.Entry entry = managedById.next();
+                if (!keepIds.contains(entry.id)) {
+                    deleteRow(db, entry.id);
+                    managed++;
+                    progress.onProgress(managed, total);
+                }
+            }
+            if (includeUntracked) {
+                // Every managed row except keepIds is gone by now, so what remains under the
+                // extended tag is untracked unless it was kept or released to the user.
+                List<Long> untrackedIds = new ArrayList<>();
+                try (Cursor cursor = extendedRows(db)) {
+                    while (cursor.moveToNext()) {
+                        long id = cursor.getLong(0);
+                        if (!keepIds.contains(id) && !releasedIds.contains(id)) {
+                            untrackedIds.add(id);
+                        }
+                    }
+                }
+                for (long id : untrackedIds) {
+                    deleteRow(db, id);
+                    untracked++;
+                }
+            }
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+        notifyChanged();
+        return new int[] {managed, untracked};
+    }
+
+    @Override
+    public int countUntracked(Iterator<ManagedEntryStore.Entry> managedById,
+            Set<Long> excludedIds) {
+        int untracked = 0;
+        long managedId = managedById.hasNext() ? managedById.next().id : Long.MAX_VALUE;
+        try (Cursor cursor = extendedRows(helper.getReadableDatabase())) {
+            while (cursor.moveToNext()) {
+                long id = cursor.getLong(0);
+                while (managedId < id) {
+                    managedId = managedById.hasNext() ? managedById.next().id : Long.MAX_VALUE;
+                }
+                if (managedId != id && !excludedIds.contains(id)) {
+                    untracked++;
+                }
+            }
+        }
+        return untracked;
+    }
+
+    @Override
+    public Set<Long> existingIds(Collection<Long> ids) {
+        Set<Long> existing = new HashSet<>();
+        try (Cursor cursor = helper.getReadableDatabase().query(ENTRY_TABLE,
+                new String[] {"_id"}, null, null, null, null, null)) {
+            while (cursor.moveToNext()) {
+                long id = cursor.getLong(0);
+                if (ids.contains(id)) {
+                    existing.add(id);
+                }
+            }
+        }
+        return existing;
+    }
+
+    /** Ids of rows whose locale carries EXTENDED_TAG_SUFFIX, ascending. */
+    private static Cursor extendedRows(SQLiteDatabase db) {
+        return db.query(ENTRY_TABLE, new String[] {"_id"}, "locale LIKE ?",
+                new String[] {"%" + ExtendedDictionaryImporter.EXTENDED_TAG_SUFFIX},
+                null, null, "_id");
+    }
+
+    private void deleteRow(SQLiteDatabase db, long id) {
+        String[] args = {String.valueOf(id)};
+        db.delete(ENTRY_TABLE, "_id = ?", args);
+        db.delete(posTable, "_id = ?", args);
     }
 
     /** Runs after commit; a failed notification must not look like a failed write. */
@@ -288,24 +448,16 @@ final class GboardPersonalDictionaryReflectionGateway
         }
     }
 
-    // ponytail: rows are snapshotted per gateway; one gateway serves one import/remove pass.
+    // ponytail: one key per dictionary row is kept for contains(); one gateway serves one pass.
     private void loadRows() {
-        Map<Long, String> byId = new HashMap<>();
         Set<String> keys = new HashSet<>();
-        String pos = quoted(posTable);
-        // Same LEFT JOIN as Gboard's own qcj.c() reader.
-        try (Cursor cursor = helper.getReadableDatabase().rawQuery(
-                "SELECT entry._id, word, shortcut, locale, " + pos + ".pos_tag FROM entry"
-                        + " LEFT JOIN " + pos + " ON entry._id = " + pos + "._id", null)) {
+        try (Cursor cursor = helper.getReadableDatabase().query(ENTRY_TABLE,
+                new String[] {"word", "shortcut", "locale"}, null, null, null, null, null)) {
             while (cursor.moveToNext()) {
-                String key = key(cursor.getString(1), cursor.getString(2), cursor.getString(3));
-                byId.put(cursor.getLong(0), key + '\u0000' + nonNull(cursor.getString(4)));
-                keys.add(key);
+                keys.add(key(cursor.getString(0), cursor.getString(1), cursor.getString(2)));
             }
         }
-        rowsById = byId;
         rowKeys = keys;
-        rowsStale = false;
     }
 
     @Override

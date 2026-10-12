@@ -86,6 +86,28 @@ public final class ManagedEntryStoreTest {
     }
 
     @Test
+    public void updateRemovesAndAddsInOneStepAndIterationIsOrderedById() {
+        store.save(Arrays.asList(
+                new ManagedEntryStore.Entry(5L, "E", "e", "en", ""),
+                new ManagedEntryStore.Entry(2L, "B", "b", "en", "")));
+
+        store.update(Collections.singletonList(5L), Arrays.asList(
+                new ManagedEntryStore.Entry(9L, "I", "i", "en", ""),
+                new ManagedEntryStore.Entry(5L, "E2", "e", "en", "")));
+
+        List<Long> ids = new ArrayList<>();
+        List<String> words = new ArrayList<>();
+        try (ManagedEntryStore.EntryCursor cursor = store.iterateById()) {
+            cursor.forEachRemaining(entry -> {
+                ids.add(entry.id);
+                words.add(entry.word);
+            });
+        }
+        assertEquals(Arrays.asList(2L, 5L, 9L), ids);
+        assertEquals(Arrays.asList("B", "E2", "I"), words);
+    }
+
+    @Test
     public void migratesTheLegacyJsonPreferenceOnceAndClearsIt() {
         legacyPreferences().edit().putString(ManagedEntryStore.PREF_KEY_ENTRIES,
                 "[{\"id\":5,\"word\":\"W\",\"shortcut\":\"w\",\"locale\":\"ja-JP\","

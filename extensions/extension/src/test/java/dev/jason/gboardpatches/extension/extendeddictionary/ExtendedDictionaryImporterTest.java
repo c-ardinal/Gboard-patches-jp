@@ -294,6 +294,25 @@ public final class ExtendedDictionaryImporterTest {
     }
 
     @Test
+    public void errorAfterTheStoreWriteLeavesRowsAndStoreConsistent() {
+        gateway.languageCheckError = new OutOfMemoryError("simulated heap exhaustion");
+        List<WordListParser.Row> rows = Arrays.asList(
+                row("a", "A", "ja-JP", ""), row("b", "B", "ja-JP", ""));
+
+        ExtendedDictionaryImporter.ImportResult result =
+                ExtendedDictionaryImporter.importRows(gateway, store, rows);
+
+        assertFalse(result.rolledBack);
+        assertEquals(2, result.inserted);
+        assertEquals(2, gateway.rows.size());
+        assertEquals(2, store.load().size());
+        assertEquals(0, gateway.matchingCalls);
+        assertEquals(2, ExtendedDictionaryImporter.importRows(gateway, store, rows)
+                .skippedExisting);
+        assertEquals(2, store.load().size());
+    }
+
+    @Test
     public void cancellationLeavesDictionaryAndStoreUnchanged() {
         gateway.failure = new CancellationException();
 
@@ -308,16 +327,20 @@ public final class ExtendedDictionaryImporterTest {
     }
 
     @Test
-    public void unverifiedInsertsAreNeitherTrackedNorDeleted() {
+    public void insertedIdsAreRecordedAsIsButRemovalStillChecksContent() {
         long userId = gateway.addUserRow("Other", "x", "en-US", "");
         gateway.forcedIds = new long[] {userId};
 
         ExtendedDictionaryImporter.ImportResult result = ExtendedDictionaryImporter.importRows(
                 gateway, store, Collections.singletonList(row("a", "A", "en-US", "")));
+        assertEquals(1, result.inserted);
+        assertEquals(0, gateway.matchingCalls);
 
-        assertEquals(0, result.inserted);
-        assertEquals(1, result.failed);
-        assertTrue(store.load().isEmpty());
+        ExtendedDictionaryImporter.RemoveResult removed =
+                ExtendedDictionaryImporter.removeAll(gateway, store);
+
+        assertEquals(0, removed.deleted);
+        assertEquals(1, removed.forgotten);
         assertTrue(gateway.deletedIds.isEmpty());
         assertTrue(gateway.rows.containsKey(userId));
     }
@@ -368,6 +391,9 @@ public final class ExtendedDictionaryImporterTest {
         final List<String> insertedPosTags = new ArrayList<>();
         final List<Long> deletedIds = new ArrayList<>();
         RuntimeException failure;
+        int matchingCalls;
+        int failMatchingCall = -1;
+        Error languageCheckError;
         long[] forcedIds;
         java.util.Set<String> enabledLanguageRegions;
         boolean failDeletes;
@@ -429,7 +455,85 @@ public final class ExtendedDictionaryImporterTest {
         }
 
         @Override
+        public java.util.Set<Long> matchingIds(List<ManagedEntryStore.Entry> entries) {
+            matchingCalls++;
+            if (matchingCalls == failMatchingCall) {
+                throw new OutOfMemoryError("simulated heap exhaustion");
+            }
+            java.util.Set<Long> ids = new java.util.HashSet<>();
+            for (ManagedEntryStore.Entry entry : entries) {
+                if (exists(entry.id, entry.word, entry.shortcut, entry.localeTag,
+                        entry.posTag)) {
+                    ids.add(entry.id);
+                }
+            }
+            return ids;
+        }
+
+        @Override
+        public int[] deleteImported(java.util.Iterator<ManagedEntryStore.Entry> managedById,
+                java.util.Set<Long> keepIds, java.util.Set<Long> releasedIds,
+                boolean includeUntracked, ExtendedDictionaryImporter.Progress progress,
+                int total) {
+            if (failDeletes) {
+                throw new IllegalStateException("simulated delete failure");
+            }
+            int managed = 0;
+            while (managedById.hasNext()) {
+                long id = managedById.next().id;
+                if (!keepIds.contains(id)) {
+                    deletedIds.add(id);
+                    rows.remove(id);
+                    progress.onProgress(++managed, total);
+                }
+            }
+            List<Long> orphans = new ArrayList<>();
+            rows.forEach((id, row) -> {
+                if (includeUntracked && ExtendedDictionaryImporter.isExtendedTag(row[2])
+                        && !keepIds.contains(id) && !releasedIds.contains(id)) {
+                    orphans.add(id);
+                }
+            });
+            orphans.forEach(rows::remove);
+            return new int[] {managed, orphans.size()};
+        }
+
+        @Override
+        public java.util.Set<Long> mismatchedIds(
+                java.util.Iterator<ManagedEntryStore.Entry> entriesById) {
+            java.util.Set<Long> ids = new java.util.HashSet<>();
+            entriesById.forEachRemaining(entry -> {
+                if (!exists(entry.id, entry.word, entry.shortcut, entry.localeTag,
+                        entry.posTag)) {
+                    ids.add(entry.id);
+                }
+            });
+            return ids;
+        }
+
+        @Override
+        public int countUntracked(java.util.Iterator<ManagedEntryStore.Entry> managedById,
+                java.util.Set<Long> excludedIds) {
+            java.util.Set<Long> managed = new java.util.HashSet<>();
+            managedById.forEachRemaining(entry -> managed.add(entry.id));
+            return (int) rows.entrySet().stream().filter(row ->
+                    ExtendedDictionaryImporter.isExtendedTag(row.getValue()[2])
+                            && !managed.contains(row.getKey())
+                            && !excludedIds.contains(row.getKey())).count();
+        }
+
+        @Override
+        public java.util.Set<Long> existingIds(java.util.Collection<Long> ids) {
+            java.util.Set<Long> existing = new java.util.HashSet<>(ids);
+            existing.retainAll(rows.keySet());
+            return existing;
+        }
+
+        @Override
         public int countWithoutEnabledLanguage(List<ManagedEntryStore.Entry> entries) {
+            if (languageCheckError != null) {
+                throw languageCheckError;
+            }
             if (enabledLanguageRegions == null) {
                 return -1;
             }

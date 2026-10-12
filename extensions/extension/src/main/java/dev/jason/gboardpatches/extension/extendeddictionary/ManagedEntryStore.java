@@ -13,8 +13,13 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Set;
 
 /**
  * Personal dictionary rows created by this feature, in an extension-owned database that the
@@ -22,8 +27,15 @@ import java.util.List;
  */
 final class ManagedEntryStore implements AutoCloseable {
     static final String DATABASE_NAME = "gboard_patches_extended_dictionary.db";
-    private static final int DATABASE_VERSION = 1;
+    private static final int DATABASE_VERSION = 2;
     private static final String TABLE = "managed_entry";
+    /**
+     * Gboard rowids this feature once created but handed over to the user because they were
+     * changed in Gboard; such rows carry the extended tag yet must never count as untracked.
+     */
+    private static final String RELEASED_TABLE = "released";
+    private static final String CREATE_RELEASED =
+            "CREATE TABLE IF NOT EXISTS " + RELEASED_TABLE + "(id INTEGER PRIMARY KEY)";
     /** Legacy (pre-database) storage: one JSON array in this preference file. */
     static final String PREF_FILE = "gboard_patches_extended_dictionary";
     static final String PREF_KEY_ENTRIES = "managed_entries";
@@ -74,9 +86,119 @@ final class ManagedEntryStore implements AutoCloseable {
         return Collections.unmodifiableList(entries);
     }
 
+    /** Streams the entries in id order; close it to release the cursor. */
+    EntryCursor iterateById() {
+        migrateLegacy();
+        return new EntryCursor(helper.getReadableDatabase().query(TABLE,
+                new String[] {"id", "word", "shortcut", "locale", "pos_tag"},
+                null, null, null, null, "id"));
+    }
+
     int count() {
         migrateLegacy();
         return (int) DatabaseUtils.queryNumEntries(helper.getReadableDatabase(), TABLE);
+    }
+
+    /** Removes the given ids and records the added entries in one transaction. */
+    void update(Collection<Long> removedIds, List<Entry> added) {
+        update(removedIds, added, Collections.emptyList());
+    }
+
+    /**
+     * One transaction: removedIds stop being managed and become released, added entries become
+     * managed (a reused rowid is no longer released), and goneIds leave the released set.
+     */
+    void update(Collection<Long> removedIds, List<Entry> added, Collection<Long> goneIds) {
+        migrateLegacy();
+        SQLiteDatabase db = helper.getWritableDatabase();
+        db.beginTransaction();
+        try (SQLiteStatement delete = db.compileStatement(
+                "DELETE FROM " + TABLE + " WHERE id = ?");
+                SQLiteStatement release = db.compileStatement(
+                        "INSERT OR IGNORE INTO " + RELEASED_TABLE + "(id) VALUES (?)");
+                SQLiteStatement unrelease = db.compileStatement(
+                        "DELETE FROM " + RELEASED_TABLE + " WHERE id = ?")) {
+            for (long id : removedIds) {
+                delete.bindLong(1, id);
+                delete.executeUpdateDelete();
+                release.bindLong(1, id);
+                release.executeInsert();
+            }
+            for (Entry entry : added) {
+                unrelease.bindLong(1, entry.id);
+                unrelease.executeUpdateDelete();
+            }
+            for (long id : goneIds) {
+                unrelease.bindLong(1, id);
+                unrelease.executeUpdateDelete();
+            }
+            insert(db, added);
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    /** Ends tracking: drops every managed entry and releases keptIds, in one transaction. */
+    void clearAndRelease(Collection<Long> keptIds) {
+        migrateLegacy();
+        SQLiteDatabase db = helper.getWritableDatabase();
+        db.beginTransaction();
+        try (SQLiteStatement release = db.compileStatement(
+                "INSERT OR IGNORE INTO " + RELEASED_TABLE + "(id) VALUES (?)")) {
+            db.delete(TABLE, null, null);
+            for (long id : keptIds) {
+                release.bindLong(1, id);
+                release.executeInsert();
+            }
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    Set<Long> releasedIds() {
+        migrateLegacy();
+        Set<Long> ids = new HashSet<>();
+        try (Cursor cursor = helper.getReadableDatabase().query(RELEASED_TABLE,
+                new String[] {"id"}, null, null, null, null, null)) {
+            while (cursor.moveToNext()) {
+                ids.add(cursor.getLong(0));
+            }
+        }
+        return ids;
+    }
+
+    static final class EntryCursor implements Iterator<Entry>, AutoCloseable {
+        private final Cursor cursor;
+        private Boolean hasNext;
+
+        private EntryCursor(Cursor cursor) {
+            this.cursor = cursor;
+        }
+
+        @Override
+        public boolean hasNext() {
+            if (hasNext == null) {
+                hasNext = cursor.moveToNext();
+            }
+            return hasNext;
+        }
+
+        @Override
+        public Entry next() {
+            if (!hasNext()) {
+                throw new NoSuchElementException();
+            }
+            hasNext = null;
+            return new Entry(cursor.getLong(0), cursor.getString(1), cursor.getString(2),
+                    cursor.getString(3), cursor.getString(4));
+        }
+
+        @Override
+        public void close() {
+            cursor.close();
+        }
     }
 
     /** Replaces the whole list atomically. */
@@ -162,10 +284,12 @@ final class ManagedEntryStore implements AutoCloseable {
         public void onCreate(SQLiteDatabase db) {
             db.execSQL("CREATE TABLE " + TABLE + "(id INTEGER PRIMARY KEY, word TEXT NOT NULL,"
                     + " shortcut TEXT NOT NULL, locale TEXT NOT NULL, pos_tag TEXT NOT NULL)");
+            db.execSQL(CREATE_RELEASED);
         }
 
         @Override
         public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+            db.execSQL(CREATE_RELEASED);
         }
     }
 }

@@ -1,5 +1,6 @@
 package dev.jason.gboardpatches.extension.extendeddictionary;
 
+import android.app.AlertDialog;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
@@ -82,14 +83,11 @@ public final class GboardExtendedDictionarySettingsFeature
                         WordListParser.MAX_ROWS_PER_IMPORT),
                 supported && !running,
                 () -> importWordList(host)));
-        rows.add(new GboardPatchesSettingsContract.DangerRow(
+        rows.add(new GboardPatchesSettingsContract.CommandRow(
                 text(context, R.string.gboard_patches_extended_dictionary_remove_title),
                 text(context, R.string.gboard_patches_extended_dictionary_remove_summary),
-                supported && !running && managedCount > 0,
-                () -> removeImportedWords(host),
-                text(context, R.string.gboard_patches_extended_dictionary_remove_confirm_title),
-                text(context,
-                        R.string.gboard_patches_extended_dictionary_remove_confirm_message)));
+                supported && !running,
+                () -> confirmRemoval(host)));
         rows.add(new GboardPatchesSettingsContract.InfoRow(
                 text(context, R.string.gboard_patches_extended_dictionary_status_title),
                 statusSummary(context, managedCount),
@@ -136,12 +134,89 @@ public final class GboardExtendedDictionarySettingsFeature
                                 document.getData(), progress, cancel)));
     }
 
-    private void removeImportedWords(GboardPatchesSettingsContract.FeatureHost host) {
+    /** Counts untracked extended-tag rows off the main thread, then asks how far to go. */
+    private void confirmRemoval(GboardPatchesSettingsContract.FeatureHost host) {
+        Context context = host.getContext();
+        Handler main = new Handler(Looper.getMainLooper());
+        WORKER.execute(() -> {
+            int untracked = countUntracked(context);
+            main.post(() -> {
+                if (!ExtendedDictionaryProgressDialog.isHostGone(context)) {
+                    GboardPatchesSettingsContract.showManagedDialog(host, removalDialog(
+                            context, untracked,
+                            includeUntracked -> removeImportedWords(host, includeUntracked)));
+                }
+            });
+        });
+    }
+
+    interface RemovalChoice {
+        void remove(boolean includeUntracked);
+    }
+
+    /** Default (positive) action removes tracked words only; untracked ones need "Remove all". */
+    static GboardPatchesSettingsContract.ManagedDialogAction removalDialog(Context context,
+            int untracked, RemovalChoice choice) {
+        return onDismiss -> {
+            // The removal starts only after this dialog is gone, so the progress dialog does not
+            // overlap it in the host's modal bookkeeping.
+            Boolean[] chosen = new Boolean[1];
+            AlertDialog.Builder builder = new AlertDialog.Builder(context)
+                    .setTitle(text(context,
+                            R.string.gboard_patches_extended_dictionary_remove_confirm_title))
+                    .setNegativeButton(text(context, R.string.gboard_patches_dialog_cancel), null);
+            if (untracked > 0) {
+                builder.setMessage(GboardSettingsText.format(context,
+                                R.string.gboard_patches_extended_dictionary_remove_untracked_message,
+                                untracked))
+                        .setPositiveButton(text(context,
+                                R.string.gboard_patches_extended_dictionary_remove_tracked_only),
+                                (dialog, which) -> chosen[0] = false)
+                        .setNeutralButton(text(context,
+                                R.string.gboard_patches_extended_dictionary_remove_all),
+                                (dialog, which) -> chosen[0] = true);
+            } else {
+                builder.setMessage(text(context,
+                                R.string.gboard_patches_extended_dictionary_remove_confirm_message))
+                        .setPositiveButton(text(context,
+                                R.string.gboard_patches_extended_dictionary_remove_title),
+                                (dialog, which) -> chosen[0] = false);
+            }
+            AlertDialog dialog = builder.create();
+            dialog.setOnDismissListener(ignored -> {
+                onDismiss.run();
+                if (chosen[0] != null) {
+                    choice.remove(chosen[0]);
+                }
+            });
+            dialog.show();
+            return true;
+        };
+    }
+
+    private int countUntracked(Context context) {
+        GboardPersonalDictionaryReflectionGateway gateway =
+                GboardPersonalDictionaryReflectionGateway.open(context, gboardClassLoader);
+        if (gateway == null) {
+            return 0;
+        }
+        try (ManagedEntryStore store = ManagedEntryStore.open(context)) {
+            return ExtendedDictionaryImporter.countUntracked(gateway, store);
+        } catch (Throwable failure) {
+            Log.w(TAG, "Untracked count failed: " + failure.getClass().getName());
+            return 0;
+        } finally {
+            gateway.close();
+        }
+    }
+
+    private void removeImportedWords(GboardPatchesSettingsContract.FeatureHost host,
+            boolean includeUntracked) {
         runInBackground(host,
                 new ExtendedDictionaryProgressDialog.Job(
                         R.string.gboard_patches_extended_dictionary_progress_remove_title, false),
                 text(host.getContext(), R.string.gboard_patches_extended_dictionary_remove_failed),
-                (progress, cancel) -> removeAll(host.getContext(), progress));
+                (progress, cancel) -> removeAll(host.getContext(), progress, includeUntracked));
     }
 
     static ExtendedDictionaryProgressDialog.Job currentJob() {
@@ -265,6 +340,11 @@ public final class GboardExtendedDictionarySettingsFeature
     }
 
     String removeAll(Context context, ExtendedDictionaryImporter.Progress progress) {
+        return removeAll(context, progress, false);
+    }
+
+    String removeAll(Context context, ExtendedDictionaryImporter.Progress progress,
+            boolean includeUntracked) {
         GboardPersonalDictionaryReflectionGateway gateway =
                 GboardPersonalDictionaryReflectionGateway.open(context, gboardClassLoader);
         if (gateway == null) {
@@ -272,12 +352,16 @@ public final class GboardExtendedDictionarySettingsFeature
         }
         try (ManagedEntryStore store = ManagedEntryStore.open(context)) {
             ExtendedDictionaryImporter.RemoveResult result =
-                    ExtendedDictionaryImporter.removeAll(gateway, store, progress);
+                    ExtendedDictionaryImporter.removeAll(gateway, store, progress,
+                            includeUntracked);
             Log.i(TAG, "Remove deleted=" + result.deleted + " forgotten=" + result.forgotten
-                    + " failed=" + result.failed);
-            return GboardSettingsText.format(context,
+                    + " failed=" + result.failed + " orphans=" + result.orphansDeleted);
+            String done = GboardSettingsText.format(context,
                     R.string.gboard_patches_extended_dictionary_remove_done,
                     result.deleted, result.forgotten, result.failed);
+            return result.orphansDeleted == 0 ? done : done + "\n" + GboardSettingsText.format(
+                    context, R.string.gboard_patches_extended_dictionary_remove_orphans,
+                    result.orphansDeleted);
         } catch (RuntimeException failure) {
             Log.w(TAG, "Remove failed: " + failure.getClass().getName());
             return text(context, R.string.gboard_patches_extended_dictionary_remove_failed);

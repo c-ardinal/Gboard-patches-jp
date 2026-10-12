@@ -1,6 +1,7 @@
 package dev.jason.gboardpatches.extension.extendeddictionary;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -82,11 +83,18 @@ final class ExtendedDictionaryImporter {
         final int deleted;
         final int forgotten;
         final int failed;
+        /** Extended-tag rows that no managed entry recorded (left by a failed import). */
+        final int orphansDeleted;
 
         RemoveResult(int deleted, int forgotten, int failed) {
+            this(deleted, forgotten, failed, 0);
+        }
+
+        RemoveResult(int deleted, int forgotten, int failed, int orphansDeleted) {
             this.deleted = deleted;
             this.forgotten = forgotten;
             this.failed = failed;
+            this.orphansDeleted = orphansDeleted;
         }
     }
 
@@ -226,14 +234,14 @@ final class ExtendedDictionaryImporter {
             AtomicBoolean cancel) {
         // Rows the user deleted or edited in Gboard are no longer ours; their rowids may be
         // reused by this very import, so they must leave the store first.
-        List<ManagedEntryStore.Entry> stored = store.load();
-        List<ManagedEntryStore.Entry> existing = new ArrayList<>(stored.size());
-        for (ManagedEntryStore.Entry entry : stored) {
-            if (matches(gateway, entry)) {
-                existing.add(entry);
-            }
+        // Streamed: the managed list can hold hundreds of thousands of rows, so it is never
+        // materialised; only the (usually few) ids to forget are kept.
+        Set<Long> forgottenIds;
+        try (ManagedEntryStore.EntryCursor stored = store.iterateById()) {
+            forgottenIds = gateway.mismatchedIds(stored);
         }
-        int forgotten = stored.size() - existing.size();
+        int forgotten = forgottenIds.size();
+        Set<Long> goneReleasedIds = goneReleasedIds(gateway, store);
         List<ManagedEntryStore.Entry> pending = new ArrayList<>();
         Set<String> seen = new HashSet<>();
         int skipped = 0;
@@ -249,8 +257,8 @@ final class ExtendedDictionaryImporter {
         }
         progress.onProgress(0, pending.size());
         if (pending.isEmpty()) {
-            if (forgotten > 0) {
-                store.save(existing);
+            if (forgotten > 0 || !goneReleasedIds.isEmpty()) {
+                store.update(forgottenIds, Collections.emptyList(), goneReleasedIds);
             }
             return new ImportResult(0, skipped, 0, false, 0).withForgotten(forgotten);
         }
@@ -268,59 +276,90 @@ final class ExtendedDictionaryImporter {
             inserted.add(new ManagedEntryStore.Entry(ids[index], entry.word, entry.shortcut,
                     entry.localeTag, entry.posTag));
         }
+        pending = null;
         try {
-            int failed = 0;
-            List<ManagedEntryStore.Entry> verified = new ArrayList<>(existing);
-            for (ManagedEntryStore.Entry entry : inserted) {
-                if (matches(gateway, entry)) {
-                    verified.add(entry);
-                } else {
-                    failed++;
-                }
-            }
-            store.save(verified);
-            return new ImportResult(verified.size() - existing.size(), skipped, failed,
-                    false, 0).withForgotten(forgotten).withUnmatchedLanguage(
-                            countWithoutEnabledLanguage(gateway,
-                                    verified.subList(existing.size(), verified.size())));
-        } catch (RuntimeException failure) {
+            // Record first: the ids come from our own committed inserts, so they are
+            // authoritative and need no read-back before the store knows about them.
+            store.update(forgottenIds, inserted, goneReleasedIds);
+        } catch (Throwable failure) {
+            // Committed but not recorded: anything here, including OutOfMemoryError, must
+            // undo the rows or they would stay behind as untracked extended-tag rows.
             return new ImportResult(0, skipped, 0, true, rollBack(gateway, inserted));
         }
+        return new ImportResult(inserted.size(), skipped, 0, false, 0)
+                .withForgotten(forgotten)
+                .withUnmatchedLanguage(countWithoutEnabledLanguage(gateway, inserted));
+    }
+
+    /** Released ids whose rows the user has since deleted; they leave the released set. */
+    private static Set<Long> goneReleasedIds(PersonalDictionaryGateway gateway,
+            ManagedEntryStore store) {
+        Set<Long> released = store.releasedIds();
+        if (released.isEmpty()) {
+            return released;
+        }
+        Set<Long> gone = new HashSet<>(released);
+        gone.removeAll(gateway.existingIds(released));
+        return gone;
+    }
+
+    /** Extended-tag rows that are neither managed nor released, for the Remove prompt. */
+    static int countUntracked(PersonalDictionaryGateway gateway, ManagedEntryStore store) {
+        Set<Long> released = store.releasedIds();
+        try (ManagedEntryStore.EntryCursor managed = store.iterateById()) {
+            return gateway.countUntracked(managed, released);
+        }
+    }
+
+    /** The given entries whose rows still hold exactly what was recorded, in order. */
+    private static List<ManagedEntryStore.Entry> matching(PersonalDictionaryGateway gateway,
+            List<ManagedEntryStore.Entry> entries) {
+        Set<Long> ids = gateway.matchingIds(entries);
+        List<ManagedEntryStore.Entry> result = new ArrayList<>(ids.size());
+        for (ManagedEntryStore.Entry entry : entries) {
+            if (ids.contains(entry.id)) {
+                result.add(entry);
+            }
+        }
+        return result;
     }
 
     static RemoveResult removeAll(PersonalDictionaryGateway gateway, ManagedEntryStore store) {
         return removeAll(gateway, store, (done, total) -> {
-        });
+        }, false);
     }
 
     static RemoveResult removeAll(PersonalDictionaryGateway gateway, ManagedEntryStore store,
             Progress progress) {
-        List<ManagedEntryStore.Entry> remaining = new ArrayList<>();
-        List<ManagedEntryStore.Entry> matching = new ArrayList<>();
-        int forgotten = 0;
-        for (ManagedEntryStore.Entry entry : store.load()) {
-            try {
-                if (matches(gateway, entry)) {
-                    matching.add(entry);
-                } else {
-                    forgotten++;
-                }
-            } catch (RuntimeException failure) {
-                remaining.add(entry);
-            }
-        }
-        int deleted = 0;
-        progress.onProgress(0, matching.size());
+        return removeAll(gateway, store, progress, false);
+    }
+
+    /**
+     * Deletes the managed rows that still match; changed ones are released to the user. Only
+     * with includeUntracked are other extended-tag rows (not managed, not released) deleted too.
+     */
+    static RemoveResult removeAll(PersonalDictionaryGateway gateway, ManagedEntryStore store,
+            Progress progress, boolean includeUntracked) {
+        int stored = store.count();
+        int[] counts;
+        Set<Long> forgottenIds;
         try {
-            if (!matching.isEmpty()) {
-                gateway.deleteAll(matching, new ProgressThrottle(progress));
+            try (ManagedEntryStore.EntryCursor managed = store.iterateById()) {
+                forgottenIds = gateway.mismatchedIds(managed);
             }
-            deleted = matching.size();
+            Set<Long> released = store.releasedIds();
+            int total = stored - forgottenIds.size();
+            progress.onProgress(0, total);
+            try (ManagedEntryStore.EntryCursor managed = store.iterateById()) {
+                counts = gateway.deleteImported(managed, forgottenIds, released,
+                        includeUntracked, new ProgressThrottle(progress), total);
+            }
         } catch (RuntimeException failure) {
-            remaining.addAll(matching);
+            // Nothing was committed: every managed entry stays recorded for a later retry.
+            return new RemoveResult(0, 0, stored);
         }
-        store.save(remaining);
-        return new RemoveResult(deleted, forgotten, remaining.size());
+        store.clearAndRelease(forgottenIds);
+        return new RemoveResult(counts[0], forgottenIds.size(), 0, counts[1]);
     }
 
     /** Informational only: never fails an import that has already been committed. */
@@ -328,31 +367,19 @@ final class ExtendedDictionaryImporter {
             List<ManagedEntryStore.Entry> inserted) {
         try {
             return inserted.isEmpty() ? 0 : gateway.countWithoutEnabledLanguage(inserted);
-        } catch (RuntimeException failure) {
+        } catch (Throwable failure) {
             return -1;
         }
     }
 
     private static int rollBack(PersonalDictionaryGateway gateway,
             List<ManagedEntryStore.Entry> inserted) {
-        List<ManagedEntryStore.Entry> matching = new ArrayList<>();
         try {
-            for (ManagedEntryStore.Entry entry : inserted) {
-                if (matches(gateway, entry)) {
-                    matching.add(entry);
-                }
-            }
-            gateway.deleteAll(matching, (done, total) -> {
+            gateway.deleteAll(matching(gateway, inserted), (done, total) -> {
             });
             return 0;
-        } catch (RuntimeException failure) {
+        } catch (Throwable failure) {
             return inserted.size();
         }
-    }
-
-    private static boolean matches(PersonalDictionaryGateway gateway,
-            ManagedEntryStore.Entry entry) {
-        return gateway.exists(
-                entry.id, entry.word, entry.shortcut, entry.localeTag, entry.posTag);
     }
 }

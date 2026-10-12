@@ -3342,6 +3342,22 @@
         <translation locale="en">Removed %1$d words. Kept %2$d changed words, %3$d failed.</translation>
         <translation locale="zh-Hant">已移除 %1$d 個單字。保留 %2$d 個已變更的單字，%3$d 個失敗。</translation>
     </string>
+    <string name="gboard_patches_extended_dictionary_remove_untracked_message">
+        <translation locale="en">%1$d words in the Extended sections are not tracked (failed imports, or words you added there). Delete them too?</translation>
+        <translation locale="zh-Hant">擴充區段中有 %1$d 個單字未被追蹤（匯入失敗，或您自行加入的單字）。也要一併刪除嗎？</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_remove_tracked_only">
+        <translation locale="en">Remove tracked only</translation>
+        <translation locale="zh-Hant">僅移除已追蹤的單字</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_remove_all">
+        <translation locale="en">Remove all</translation>
+        <translation locale="zh-Hant">全部移除</translation>
+    </string>
+    <string name="gboard_patches_extended_dictionary_remove_orphans">
+        <translation locale="en">%1$d untracked imported words removed</translation>
+        <translation locale="zh-Hant">已移除 %1$d 個未追蹤的匯入單字</translation>
+    </string>
     <string name="gboard_patches_extended_dictionary_remove_failed">
         <translation locale="en">Removing imported words failed.</translation>
         <translation locale="zh-Hant">移除已匯入的單字失敗。</translation>

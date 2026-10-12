@@ -107,6 +107,96 @@ public final class GboardPersonalDictionaryReflectionGatewayTest {
     }
 
     @Test
+    public void removeKeepsUntrackedRowsUnlessAskedAndNeverEditedOnes() {
+        String extended = ExtendedDictionaryImporter.EXTENDED_JA_TAG;
+        long userJapanese = userRow("Mine", "m", "ja-JP");
+        insertPos(userJapanese, NOUN);
+        try (ManagedEntryStore store = ManagedEntryStore.open(context)) {
+            store.save(Collections.emptyList());
+            ExtendedDictionaryImporter.importRows(gateway, store, Arrays.asList(
+                    new WordListParser.Row("a", "A", "ja-JP", ""),
+                    new WordListParser.Row("b", "B", "ja-JP", "")));
+            long userAdded = userRow("Lost", "l", extended);
+            insertPos(userAdded, NOUN);
+            long edited = store.load().get(1).id;
+            helper.getWritableDatabase().execSQL(
+                    "UPDATE entry SET word = 'B edited' WHERE _id = ?", new Object[] {edited});
+            assertEquals(1, ExtendedDictionaryImporter.countUntracked(freshGateway(), store));
+
+            ExtendedDictionaryImporter.RemoveResult trackedOnly =
+                    ExtendedDictionaryImporter.removeAll(freshGateway(), store);
+            assertEquals(1, trackedOnly.deleted);
+            assertEquals(1, trackedOnly.forgotten);
+            assertEquals(0, trackedOnly.orphansDeleted);
+            assertEquals(0, store.count());
+            assertEquals(Collections.singleton(edited), store.releasedIds());
+            assertEquals(NOUN, posTag(userAdded));
+
+            ExtendedDictionaryImporter.RemoveResult all = ExtendedDictionaryImporter.removeAll(
+                    freshGateway(), store, (done, total) -> {
+                    }, true);
+            assertEquals(1, all.orphansDeleted);
+            assertNull(posTag(userAdded));
+            assertTrue(freshGateway().exists(edited, "B edited", "b", extended, NOUN));
+            assertEquals(NOUN, posTag(userJapanese));
+            assertEquals(2, count("entry"));
+
+            ExtendedDictionaryImporter.RemoveResult again = ExtendedDictionaryImporter.removeAll(
+                    freshGateway(), store, (done, total) -> {
+                    }, true);
+            assertEquals(0, again.orphansDeleted);
+            assertTrue(freshGateway().exists(edited, "B edited", "b", extended, NOUN));
+        }
+    }
+
+    @Test
+    public void releasedIdsArePrunedOnceTheUserDeletesTheRow() {
+        try (ManagedEntryStore store = ManagedEntryStore.open(context)) {
+            store.save(Collections.emptyList());
+            ExtendedDictionaryImporter.importRows(gateway, store, Collections.singletonList(
+                    new WordListParser.Row("a", "A", "ja-JP", "")));
+            long id = store.load().get(0).id;
+            helper.getWritableDatabase().execSQL(
+                    "UPDATE entry SET word = 'A edited' WHERE _id = ?", new Object[] {id});
+            ExtendedDictionaryImporter.importRows(freshGateway(), store, Collections.emptyList());
+            assertEquals(Collections.singleton(id), store.releasedIds());
+
+            helper.getWritableDatabase().delete("entry", "_id = ?",
+                    new String[] {String.valueOf(id)});
+            ExtendedDictionaryImporter.importRows(freshGateway(), store, Collections.emptyList());
+            assertTrue(store.releasedIds().isEmpty());
+        }
+    }
+
+    private GboardPersonalDictionaryReflectionGateway freshGateway() {
+        return new GboardPersonalDictionaryReflectionGateway(helper, POS_TABLE, () -> {
+        }, tag -> tag);
+    }
+
+    @Test
+    public void matchingIdsStreamsTheTableInRowidOrder() {
+        long userId = userRow("Mine", "m", "en-US");
+        long[] ids = gateway.insertAll(rows(3), noProgress(), new AtomicBoolean());
+
+        java.util.Set<Long> matching = gateway.matchingIds(Arrays.asList(
+                new ManagedEntryStore.Entry(ids[2], "w2", "s2", "ja-JP", NOUN),
+                new ManagedEntryStore.Entry(userId, "Mine", "m", "en-US", ""),
+                new ManagedEntryStore.Entry(ids[0], "w0", "s0", "ja-JP", ""),
+                new ManagedEntryStore.Entry(ids[1], "changed", "s1", "ja-JP", NOUN),
+                new ManagedEntryStore.Entry(9_999L, "w9", "s9", "ja-JP", NOUN)));
+
+        assertEquals(new java.util.HashSet<>(Arrays.asList(ids[2], userId)), matching);
+        assertTrue(gateway.matchingIds(Collections.emptyList()).isEmpty());
+        assertEquals(new java.util.HashSet<>(Arrays.asList(ids[1], 9_999L)),
+                gateway.mismatchedIds(Arrays.asList(
+                        new ManagedEntryStore.Entry(userId, "Mine", "m", "en-US", ""),
+                        new ManagedEntryStore.Entry(ids[0], "w0", "s0", "ja-JP", NOUN),
+                        new ManagedEntryStore.Entry(ids[1], "changed", "s1", "ja-JP", NOUN),
+                        new ManagedEntryStore.Entry(9_999L, "w9", "s9", "ja-JP", NOUN))
+                        .iterator()));
+    }
+
+    @Test
     public void enabledLanguageCheckIsFailSoft() {
         ClassLoader loader = getClass().getClassLoader();
         GboardEnabledLanguages languages = GboardEnabledLanguages.resolve(loader,

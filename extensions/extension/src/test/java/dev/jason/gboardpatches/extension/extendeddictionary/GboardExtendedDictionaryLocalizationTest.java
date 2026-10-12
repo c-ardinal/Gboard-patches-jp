@@ -12,6 +12,7 @@ import android.app.Application;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.os.Looper;
+import android.view.View;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -61,7 +62,7 @@ public final class GboardExtendedDictionaryLocalizationTest {
         assertEquals(3, rows.size());
         assertEquals("Import word list", rows.get(0).getTitle().toString());
         assertFalse(rows.get(0).isEnabled());
-        assertTrue(rows.get(1) instanceof GboardPatchesSettingsContract.DangerRow);
+        assertEquals("Remove imported words", rows.get(1).getTitle().toString());
         assertFalse(rows.get(1).isEnabled());
         assertEquals("0 words managed by this feature", rows.get(2).getSummary());
         assertEnglish(screen);
@@ -173,6 +174,31 @@ public final class GboardExtendedDictionaryLocalizationTest {
         assertNull(job.view);
         assertNull(job.attachedHost.get());
         assertEquals(1, ManagedEntryStore.open(application).load().size());
+    }
+
+    @Test
+    public void removalDialogDefaultsToTrackedOnlyAndOffersRemoveAll() {
+        Activity activity = Robolectric.buildActivity(Activity.class).setup().get();
+        List<Boolean> choices = new java.util.ArrayList<>();
+
+        GboardExtendedDictionarySettingsFeature.removalDialog(activity, 3, choices::add)
+                .show(() -> {
+                });
+        AlertDialog dialog = (AlertDialog) ShadowDialog.getLatestDialog();
+        assertTrue(dialog.getButton(AlertDialog.BUTTON_POSITIVE).getText().toString()
+                .contains("tracked only"));
+        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).performClick();
+        shadowOf(Looper.getMainLooper()).idle();
+        assertEquals(java.util.Collections.singletonList(true), choices);
+
+        GboardExtendedDictionarySettingsFeature.removalDialog(activity, 0, choices::add)
+                .show(() -> {
+                });
+        AlertDialog simple = (AlertDialog) ShadowDialog.getLatestDialog();
+        assertEquals(View.GONE, simple.getButton(AlertDialog.BUTTON_NEUTRAL).getVisibility());
+        simple.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        shadowOf(Looper.getMainLooper()).idle();
+        assertEquals(java.util.Arrays.asList(true, false), choices);
     }
 
     @Test
