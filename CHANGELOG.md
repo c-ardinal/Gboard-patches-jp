@@ -1,3 +1,75 @@
+## [3.13.0-jp.1](https://github.com/c-ardinal/Gboard-patches-jp/compare/v3.13.0...v3.13.0-jp.1) (2026-10-19)
+
+### ✨ New Features
+
+* **Gboard:** sync with upstream 3.13.0, adding the `Swipe Down to Dismiss Keyboard` patch, allowing you to dismiss the keyboard by swiping down from the suggestion strip or toolbar.
+* **Gboard:** add Japanese localization for the `Swipe Down to Dismiss Keyboard` settings.
+
+### 🐛 Bug Fixes
+
+* **Gboard:** sync with upstream 3.13.0, fixing an issue where the `Frosted Glass` patch could cause the keyboard to crash when entering the password upon device startup (Direct Boot).
+* **Gboard:** sync with upstream 3.13.0, fixing the `Swipe Down to Dismiss Keyboard` patch to prevent accidental dismissal during toolbar icon sorting and candidate drag-to-delete.
+
+### ✨ 新功能
+
+* **Gboard:** 同步上游 3.13.0，新增 `Swipe Down to Dismiss Keyboard` Patch，支援從建議列或工具列向下滑動以關閉鍵盤。
+* **Gboard:** `Swipe Down to Dismiss Keyboard` 設定新增日文在地化。
+
+### 🐛 修復
+
+* **Gboard:** 同步上游 3.13.0，修復 `Frosted Glass` Patch 在裝置開機輸入密碼時（Direct Boot）可能導致鍵盤崩潰的問題。
+* **Gboard:** 同步上游 3.13.0，修復 `Swipe Down to Dismiss Keyboard` Patch，避免在排序工具列圖示及拖曳候選字刪除時誤觸關閉鍵盤。
+
+## [3.13.0](https://github.com/jasonwu1994/Gboard-patches/compare/v3.12.0...v3.13.0) (2026-10-15)
+
+### ✨ New Features
+
+* **Gboard:** add the `Swipe Down to Dismiss Keyboard` patch, allowing you to dismiss the keyboard by swiping down from the suggestion strip or toolbar.
+
+### 🐛 Bug Fixes
+
+* **Gboard:** fix an issue where the `Frosted Glass` patch could cause the keyboard to crash when entering the password upon device startup (Direct Boot).
+* **Gboard:** fix the `Swipe Down to Dismiss Keyboard` patch to prevent accidental dismissal during toolbar icon sorting and candidate drag-to-delete.
+
+### ✨ 新功能
+
+* **Gboard:** 新增 `Swipe Down to Dismiss Keyboard` Patch，支援從建議列或工具列向下滑動以關閉鍵盤。
+
+### 🐛 修復
+
+* **Gboard:** 修復 `Frosted Glass` Patch 在裝置開機輸入密碼時（Direct Boot）可能導致鍵盤崩潰的問題。
+* **Gboard:** 修復 `Swipe Down to Dismiss Keyboard` Patch，避免在排序工具列圖示及拖曳候選字刪除時誤觸關閉鍵盤。
+
+## [3.13.0-dev.2](https://github.com/jasonwu1994/Gboard-patches/compare/v3.13.0-dev.1...v3.13.0-dev.2) (2026-10-14)
+
+### 🐛 Bug Fixes
+
+* **Gboard:** fix the `Swipe Down to Dismiss Keyboard` patch to prevent accidental dismissal during toolbar icon sorting and candidate drag-to-delete.
+
+### 🐛 修復
+
+* **Gboard:** 修復 `Swipe Down to Dismiss Keyboard` Patch，避免在排序工具列圖示及拖曳候選字刪除時誤觸關閉鍵盤。
+
+## [3.13.0-dev.1](https://github.com/jasonwu1994/Gboard-patches/compare/v3.12.1-dev.1...v3.13.0-dev.1) (2026-10-14)
+
+### ✨ New Features
+
+* **Gboard:** add the `Swipe Down to Dismiss Keyboard` patch, allowing you to dismiss the keyboard by swiping down from the suggestion strip or toolbar.
+
+### ✨ 新功能
+
+* **Gboard:** 新增 `Swipe Down to Dismiss Keyboard` Patch，支援從建議列或工具列向下滑動以關閉鍵盤。
+
+## [3.12.1-dev.1](https://github.com/jasonwu1994/Gboard-patches/compare/v3.12.0...v3.12.1-dev.1) (2026-10-13)
+
+### 🐛 Bug Fixes
+
+* **Gboard:** fix an issue where the `Frosted Glass` patch could cause the keyboard to crash when entering the password upon device startup (Direct Boot).
+
+### 🐛 修復
+
+* **Gboard:** 修復 `Frosted Glass` Patch 在裝置開機輸入密碼時（Direct Boot）可能導致鍵盤崩潰的問題。
+
 ## [3.12.0-jp.1](https://github.com/c-ardinal/Gboard-patches-jp/compare/v3.12.0...v3.12.0-jp.1) (2026-10-12)
 
 ### ✨ New Features

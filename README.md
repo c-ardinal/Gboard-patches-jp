@@ -4,20 +4,9 @@
   Morphe patches for Gboard with a mix of global improvements and Taiwan-focused enhancements.
 </p>
 
-<p align="center">
-  <a href="https://github.com/jasonwu1994/Gboard-patches/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/jasonwu1994/Gboard-patches?display_name=tag&label=Release&style=for-the-badge"></a>
-  <a href="https://github.com/jasonwu1994/Gboard-patches"><img alt="Total downloads" src="https://img.shields.io/github/downloads/jasonwu1994/Gboard-patches/total?label=Downloads&style=for-the-badge"></a>
-  <a href="https://morphe.software/add-source?github=jasonwu1994/Gboard-patches"><img alt="Add to Morphe" src="https://img.shields.io/badge/Morphe-Add%20Source-00A8FF?style=for-the-badge"></a>
-  <a href="https://github.com/jasonwu1994/Gboard-patches"><img alt="GitHub stars" src="https://img.shields.io/github/stars/jasonwu1994/Gboard-patches?style=social"></a>
-</p>
-
-<p align="center">
-  <a href="https://ko-fi.com/jasonwu1994"><img height="40" alt="Buy me a coffee on Ko-fi" src="https://storage.ko-fi.com/cdn/kofi5.png?v=3"></a>
-</p>
-
 ## Overview
 
-Gboard Patches is a public Morphe source for a curated set of Gboard enhancements, including both global usability improvements and Taiwan-focused features for local input habits and day-to-day use. The Patches settings UI is available in English, Traditional Chinese, and Japanese.
+Gboard Patches is a public Morphe source for a curated set of Gboard enhancements, including both global usability improvements and Taiwan-focused features for local input habits and day-to-day use. The Patches settings UI is available in English, Traditional Chinese, and Japanese. This repository is a fork of [jasonwu1994/Gboard-patches](https://github.com/jasonwu1994/Gboard-patches) that adds Japan-focused features on top of the upstream patches.
 
 ## Included Patches
 
@@ -103,6 +92,12 @@ Import custom ZIP themes and beautiful themes from the official Rboard repositor
   <summary><code>Simple Calculator</code></summary>
 
   Adds an optional inline calculator for arithmetic expressions typed in any text field. The result appears in Gboard's suggestion row; tap it to replace the expression, or long-press it to copy the result.
+</details>
+
+<details>
+  <summary><code>Swipe Down to Dismiss Keyboard</code></summary>
+
+  Swipe down from the suggestions or toolbar to close the keyboard.
 </details>
 
 <details>
@@ -314,8 +309,8 @@ Features tailored to Japanese input workflows.
 
 Add this repository as a Morphe source:
 
-- [Open in Morphe](https://morphe.software/add-source?github=jasonwu1994/Gboard-patches)
-- Or manually add `https://github.com/jasonwu1994/Gboard-patches`
+- [Open in Morphe](https://morphe.software/add-source?github=c-ardinal/Gboard-patches-jp)
+- Or manually add `https://github.com/c-ardinal/Gboard-patches-jp`
 
 ## Build
 
