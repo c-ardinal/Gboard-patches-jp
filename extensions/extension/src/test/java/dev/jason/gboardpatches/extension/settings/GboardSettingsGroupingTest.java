@@ -37,7 +37,7 @@ public final class GboardSettingsGroupingTest {
         Assert.assertEquals(1, sections.size());
 
         Object section = sections.get(0);
-        Assert.assertEquals("Features", reflectString(section, "getTitle"));
+        Assert.assertNull(reflectString(section, "getTitle"));
         List<?> items = reflectList(section, "getItems");
         Assert.assertEquals(1, items.size());
 
@@ -115,7 +115,6 @@ public final class GboardSettingsGroupingTest {
                 "new GboardSwipeDismissSettingsFeature(context)");
         assertInOrder(layoutGroupSource.substring(layoutGroupSource.indexOf("Arrays.asList(")),
                 "new GboardSpacebarLogoSettingsFeature(context)",
-                "new GboardFlowModeSettingsFeature(context)",
                 "new GboardCloseProactiveSuggestionsSettingsFeature(context)",
                 "new GboardLatinGlobeKeyIgnoreIntervalSettingsFeature(context)",
                 "new GboardEnglishUppercaseToggleSettingsFeature(context)",
@@ -142,7 +141,7 @@ public final class GboardSettingsGroupingTest {
                 "dev.jason.gboardpatches.feature.bluetooth_microphone"));
         Assert.assertTrue(availabilitySource.contains(
                 "dev.jason.gboardpatches.feature.close_proactive_suggestions"));
-        Assert.assertTrue(availabilitySource.contains(
+        Assert.assertFalse(availabilitySource.contains(
                 "dev.jason.gboardpatches.feature.flow_mode_animation"));
         Assert.assertTrue(availabilitySource.contains(
                 "dev.jason.gboardpatches.feature.quick_insert"));
@@ -186,7 +185,7 @@ public final class GboardSettingsGroupingTest {
     }
 
     @Test
-    public void rootScreenSeparatesPreferenceFeatureAndAboutSections() throws Exception {
+    public void rootScreenOrdersFeaturePreferenceAndAboutSections() throws Exception {
         RecordingHost host = new RecordingHost();
         FakeFeature symbolFooterFeature = new FakeFeature(
                 "Emojis, stickers & GIFs Tab Order",
@@ -210,13 +209,25 @@ public final class GboardSettingsGroupingTest {
                         () -> {
                         },
                         () -> {
-                        });
+                        },
+                        () -> host.japaneseMaintainerOpened = true);
 
         List<?> rootSections = reflectList(rootScreen, "getSections");
         Assert.assertEquals(3, rootSections.size());
         Assert.assertEquals("Features", reflectString(rootSections.get(0), "getTitle"));
-        Assert.assertEquals("About", reflectString(rootSections.get(1), "getTitle"));
-        Assert.assertEquals("Preferences", reflectString(rootSections.get(2), "getTitle"));
+        Assert.assertEquals("Preferences", reflectString(rootSections.get(1), "getTitle"));
+        Assert.assertEquals("About", reflectString(rootSections.get(2), "getTitle"));
+        List<?> aboutRows = reflectList(rootSections.get(2), "getItems");
+        Assert.assertEquals(3, aboutRows.size());
+        Assert.assertEquals("Author", reflectCharSequence(aboutRows.get(0), "getTitle"));
+        Assert.assertEquals("Japanese localization", reflectCharSequence(aboutRows.get(1), "getTitle"));
+        Assert.assertEquals("Patch Version", reflectCharSequence(aboutRows.get(2), "getTitle"));
+        GboardPatchesSettingsContract.CommandRow maintainerRow =
+                (GboardPatchesSettingsContract.CommandRow) aboutRows.get(1);
+        Assert.assertEquals("c-ardinal", maintainerRow.getSummary());
+        Assert.assertEquals(GboardPatchesIcons.TRANSLATE, maintainerRow.getDecoration().getLeadingIcon());
+        maintainerRow.getAction().run();
+        Assert.assertTrue(host.japaneseMaintainerOpened);
 
         Object keyboardRow = findItem(rootScreen, "Keyboard");
         Assert.assertEquals("NavigationRow", keyboardRow.getClass().getSimpleName());
@@ -276,6 +287,7 @@ public final class GboardSettingsGroupingTest {
 
     private static final class RecordingHost extends dev.jason.gboardpatches.extension.settings.GboardPatchesSettingsTestHost {
         private GboardPatchesSettingsContract.Feature openedFeature;
+        private boolean japaneseMaintainerOpened;
 
         @Override
         public Context getContext() {

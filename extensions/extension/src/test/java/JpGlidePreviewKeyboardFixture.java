@@ -5,7 +5,7 @@ public final class JpGlidePreviewKeyboardFixture {
     public List<?> candidates;
     public Object selected;
     public boolean autoSelect;
-    public void c(List<?> candidates, ojt selected, boolean autoSelect) {
+    public void c(List<?> candidates, owu selected, boolean autoSelect) {
         this.candidates = candidates;
         this.selected = selected;
         this.autoSelect = autoSelect;

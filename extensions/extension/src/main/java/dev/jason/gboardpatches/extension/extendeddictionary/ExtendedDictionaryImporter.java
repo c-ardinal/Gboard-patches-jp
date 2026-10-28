@@ -240,7 +240,7 @@ final class ExtendedDictionaryImporter {
     }
 
     /**
-     * Mirrors Gboard 18.0.3 iam.c(), the filter its Mozc shortcuts handler (iak.d) applies to
+     * Mirrors Gboard 18.5.4 iis.d(), the filter its Mozc shortcuts handler applies to
      * each reading: non-empty, at most 256 chars, and only these code points.
      */
     static boolean isMozcReading(String reading) {

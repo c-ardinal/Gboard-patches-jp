@@ -12,8 +12,8 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Gboard's enabled input languages (ort.a() -> oru.i()), compared the way qci.l routes personal
- * dictionary rows to engines: language (rph.g) and region (rph.j) must both match. Fail-soft:
+ * Gboard's enabled input languages (peu.a() -> pev.i()), compared the way Gboard routes personal
+ * dictionary rows to engines: language (sfc.g) and region (sfc.j) must both match. Fail-soft:
  * any missing member or failure means "unknown" and is logged once.
  */
 final class GboardEnabledLanguages {
