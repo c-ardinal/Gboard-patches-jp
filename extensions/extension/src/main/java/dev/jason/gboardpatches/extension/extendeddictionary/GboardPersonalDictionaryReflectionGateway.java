@@ -26,17 +26,17 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Gboard 18.0.3 PersonalDictionary.db written in bulk through Gboard's own SQLiteOpenHelper
- * (qcg.b of a qcj instance), followed by Gboard's own change notification (qcg.f()).
+ * Gboard 18.5.4 PersonalDictionary.db written in bulk through Gboard's own SQLiteOpenHelper
+ * (qpz.b of a qqc instance), followed by Gboard's own change notification (qpz.h()).
  */
 final class GboardPersonalDictionaryReflectionGateway
         implements PersonalDictionaryGateway, AutoCloseable {
     private static final String TAG = "GboardExtendedDictionary";
-    private static final String DATABASE_CLASS = "qcj";
-    private static final String DATABASE_BASE_CLASS = "qcg";
-    private static final String LANGUAGE_TAG_CLASS = "rph";
-    private static final String ENABLED_LANGUAGES_CLASS = "ort";
-    private static final String INPUT_LANGUAGE_CLASS = "oru";
+    private static final String DATABASE_CLASS = "qqc";
+    private static final String DATABASE_BASE_CLASS = "qpz";
+    private static final String LANGUAGE_TAG_CLASS = "sfc";
+    private static final String ENABLED_LANGUAGES_CLASS = "peu";
+    private static final String INPUT_LANGUAGE_CLASS = "pev";
     static final String ENTRY_TABLE = "entry";
     private static final List<String> ENTRY_COLUMNS =
             Arrays.asList("_id", "word", "shortcut", "locale");
@@ -141,7 +141,7 @@ final class GboardPersonalDictionaryReflectionGateway
             Class<?> languageTag = Class.forName(languageTagClass, false, classLoader);
             Field helper = base.getDeclaredField("b");
             Field posTable = base.getDeclaredField("a");
-            Method notifyChanged = base.getDeclaredMethod("f");
+            Method notifyChanged = base.getDeclaredMethod("h");
             Method fromTag = languageTag.getMethod("g", String.class);
             if (!base.isAssignableFrom(database)
                     || !SQLiteOpenHelper.class.isAssignableFrom(helper.getType())
@@ -324,7 +324,7 @@ final class GboardPersonalDictionaryReflectionGateway
         }
     }
 
-    /** Same LEFT JOIN as Gboard's own qcj.c() reader: _id, word, shortcut, locale, pos_tag. */
+    /** Same LEFT JOIN as Gboard's own qqc.c() reader: _id, word, shortcut, locale, pos_tag. */
     private String joinedRowsQuery() {
         String pos = quoted(posTable);
         return "SELECT entry._id, word, shortcut, locale, " + pos + ".pos_tag FROM entry"
@@ -364,7 +364,7 @@ final class GboardPersonalDictionaryReflectionGateway
                     pos.put("_id", ids[index]);
                     pos.put("pos_tag", entry.posTag);
                     // A stale POS row left behind under a reused rowid is overwritten, as
-                    // Gboard's own writer (qcj.k) updates instead of inserting in that case.
+                    // Gboard's own writer (qqc.m) updates instead of inserting in that case.
                     if (db.insertWithOnConflict(posTable, null, pos,
                             SQLiteDatabase.CONFLICT_REPLACE) < 0) {
                         throw new IllegalStateException("POS row could not be written");
@@ -612,7 +612,7 @@ final class GboardPersonalDictionaryReflectionGateway
         return nonNull(word) + '\u0000' + nonNull(shortcut) + '\u0000' + nonNull(localeTag);
     }
 
-    /** SQL identifier quoting for the table name read from Gboard's qcg.a constant. */
+    /** SQL identifier quoting for the table name read from Gboard's qpz.a constant. */
     private static String quoted(String identifier) {
         return "\"" + identifier.replace("\"", "\"\"") + "\"";
     }

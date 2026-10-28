@@ -9,7 +9,10 @@ import com.android.tools.smali.dexlib2.iface.instruction.NarrowLiteralInstructio
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference
+import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction11n
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction11x
+import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction21c
+import com.android.tools.smali.dexlib2.immutable.reference.ImmutableStringReference
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction35c
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
@@ -52,8 +55,8 @@ class GboardExtendedDictionaryPatchContractTest {
         assertEquals(1_000_000, MOZC_SHORTCUT_PATCHED_CAP)
         assertEquals(
             listOf(
-                "Liam;->a(Ljava/util/List;Ljava/lang/String;)Ljava/lang/String;",
-                "Liam;->b(Ljava/util/List;)V",
+                "Liis;->b(Ljava/util/List;Lmjs;)Lwns;",
+                "Liis;->c(Ljava/util/List;)V",
             ),
             EXTENDED_DICTIONARY_MOZC_CAP_TARGETS.map { target -> target.reference },
         )
@@ -114,9 +117,48 @@ class GboardExtendedDictionaryPatchContractTest {
     }
 
     @Test
-    fun `section title hook targets qcb b and calls the declared runtime`() {
+    fun `mozc cap rewrite accepts the guard after unrelated string constants`() {
+        val method = mozcCapMethod(
+            ImmutableInstruction31i(Opcode.CONST, 1, MOZC_SHORTCUT_STOCK_CAP),
+            ImmutableInstruction21c(Opcode.CONST_STRING, 2, ImmutableStringReference("method")),
+            ImmutableInstruction21c(Opcode.CONST_STRING, 2, ImmutableStringReference("class")),
+            ImmutableInstruction21c(Opcode.CONST_STRING, 2, ImmutableStringReference("file")),
+            ImmutableInstruction22t(Opcode.IF_LE, 0, 1, 3),
+            ImmutableInstruction10x(Opcode.RETURN_VOID),
+        )
+
+        method.raiseMozcShortcutCap()
+
+        val constant = method.implementation!!.instructions.first()
+        assertEquals(Opcode.CONST, constant.opcode)
+        assertEquals(1, (constant as OneRegisterInstruction).registerA)
+        assertEquals(MOZC_SHORTCUT_PATCHED_CAP, (constant as NarrowLiteralInstruction).narrowLiteral)
+    }
+
+    @Test
+    fun `mozc cap rewrite fails closed when the cap register is reused or the guard is too far`() {
+        assertThrows(IllegalStateException::class.java) {
+            mozcCapMethod(
+                ImmutableInstruction31i(Opcode.CONST, 1, MOZC_SHORTCUT_STOCK_CAP),
+                ImmutableInstruction11n(Opcode.CONST_4, 1, 0),
+                ImmutableInstruction22t(Opcode.IF_LE, 0, 1, 3),
+                ImmutableInstruction10x(Opcode.RETURN_VOID),
+            ).raiseMozcShortcutCap()
+        }
+        assertThrows(IllegalStateException::class.java) {
+            mozcCapMethod(
+                ImmutableInstruction31i(Opcode.CONST, 1, MOZC_SHORTCUT_STOCK_CAP),
+                *Array(8) { ImmutableInstruction10x(Opcode.NOP) },
+                ImmutableInstruction22t(Opcode.IF_LE, 0, 1, 3),
+                ImmutableInstruction10x(Opcode.RETURN_VOID),
+            ).raiseMozcShortcutCap()
+        }
+    }
+
+    @Test
+    fun `section title hook targets qpu b and calls the declared runtime`() {
         assertEquals(
-            "Lqcb;->b(Landroid/content/Context;Lorw;Lrph;)Ljava/lang/CharSequence;",
+            "Lqpu;->b(Landroid/content/Context;Lpex;Lsfc;)Ljava/lang/CharSequence;",
             EXTENDED_DICTIONARY_SECTION_TITLE_TARGET.reference,
         )
         assertEquals(
@@ -177,9 +219,9 @@ class GboardExtendedDictionaryPatchContractTest {
     }
 
     private fun sectionTitleMethod(vararg tail: Instruction) = ImmutableMethod(
-        "Lqcb;",
+        "Lqpu;",
         "b",
-        listOf("Landroid/content/Context;", "Lorw;", "Lrph;").map { type ->
+        listOf("Landroid/content/Context;", "Lpex;", "Lsfc;").map { type ->
             ImmutableMethodParameter(type, null, null)
         },
         "Ljava/lang/CharSequence;",
@@ -192,9 +234,9 @@ class GboardExtendedDictionaryPatchContractTest {
                 ImmutableInstruction35c(
                     Opcode.INVOKE_STATIC, 3, 1, 2, 3, 0, 0,
                     ImmutableMethodReference(
-                        "Lotq;",
-                        "b",
-                        listOf("Landroid/content/Context;", "Lorw;", "Lrph;"),
+                        "Lpgr;",
+                        "d",
+                        listOf("Landroid/content/Context;", "Lpex;", "Lsfc;"),
                         "Ljava/lang/CharSequence;",
                     ),
                 ),
@@ -205,8 +247,8 @@ class GboardExtendedDictionaryPatchContractTest {
     ).toMutable()
 
     private fun mozcCapMethod(vararg instructions: Instruction) = ImmutableMethod(
-        "Liam;",
-        "b",
+        "Liis;",
+        "c",
         listOf(ImmutableMethodParameter("Ljava/util/List;", null, null)),
         "V",
         AccessFlags.PUBLIC.value or AccessFlags.STATIC.value,
@@ -253,25 +295,25 @@ class GboardExtendedDictionaryPatchContractTest {
     fun `guard resolves exactly the personal dictionary api used by the runtime gateway`() {
         assertEquals(
             listOf(
-                "Lqcj;-><init>(Landroid/content/Context;)V",
-                "Lqcg;->f()V",
-                "Lrph;->g(Ljava/lang/String;)Lrph;",
-                "Lort;->a()Lvvw;",
-                "Loru;->i()Lrph;",
+                "Lqqc;-><init>(Landroid/content/Context;)V",
+                "Lqpz;->h()V",
+                "Lsfc;->g(Ljava/lang/String;)Lsfc;",
+                "Lpeu;->a()Lwns;",
+                "Lpev;->i()Lsfc;",
             ),
             EXTENDED_DICTIONARY_RUNTIME_TARGETS.map { target -> target.reference },
         )
         assertEquals(
             listOf(
-                "Lqcg;->a:Ljava/lang/String;",
-                "Lqcg;->b:Lqcd;",
-                "Lrph;->g:Ljava/lang/String;",
-                "Lrph;->j:Ljava/lang/String;",
+                "Lqpz;->a:Ljava/lang/String;",
+                "Lqpz;->b:Lqpw;",
+                "Lsfc;->g:Ljava/lang/String;",
+                "Lsfc;->j:Ljava/lang/String;",
             ),
             EXTENDED_DICTIONARY_RUNTIME_FIELDS.map { target -> target.reference },
         )
         val gateway = Files.readString(repositoryRoot.resolve(GATEWAY_PATH), StandardCharsets.UTF_8)
-        listOf("\"qcj\"", "\"qcg\"", "\"rph\"", "\"ort\"", "\"oru\"").forEach { name ->
+        listOf("\"qqc\"", "\"qpz\"", "\"sfc\"", "\"peu\"", "\"pev\"").forEach { name ->
             assertTrue("Gateway must resolve $name", gateway.contains(name))
         }
     }

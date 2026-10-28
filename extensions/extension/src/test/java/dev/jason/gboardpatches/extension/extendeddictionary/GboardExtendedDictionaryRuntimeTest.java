@@ -53,7 +53,7 @@ public final class GboardExtendedDictionaryRuntimeTest {
                 GboardExtendedDictionaryRuntime.sectionTitle(english, throwing, JAPANESE));
     }
 
-    /** Stands in for Gboard's rph, whose toString() is the language tag. */
+    /** Stands in for Gboard's sfc, whose toString() is the language tag. */
     private static Object tag(String value) {
         return new Object() {
             @Override

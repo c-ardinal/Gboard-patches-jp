@@ -558,7 +558,7 @@ public final class GboardPersonalDictionaryReflectionGatewayTest {
         }
     }
 
-    /** Same schema as Gboard 18.0.3 qcd (PersonalDictionary.db version 2), kept in memory. */
+    /** Same schema as Gboard 18.5.4 qpw (PersonalDictionary.db version 2), kept in memory. */
     static final class PersonalDictionaryHelper extends SQLiteOpenHelper {
         private final boolean withPosTable;
 
@@ -582,7 +582,7 @@ public final class GboardPersonalDictionaryReflectionGatewayTest {
         }
     }
 
-    /** Stands in for Gboard's ort: a() returns the enabled input languages. */
+    /** Stands in for Gboard's peu: a() returns the enabled input languages. */
     public static final class FakeEnabledLanguages {
         static List<FakeInputLanguage> enabled = Collections.emptyList();
 
@@ -591,12 +591,12 @@ public final class GboardPersonalDictionaryReflectionGatewayTest {
         }
     }
 
-    /** Stands in for Gboard's oru: i() returns the language tag used for routing. */
+    /** Stands in for Gboard's pev: i() returns the language tag used for routing. */
     public interface FakeInputLanguage {
         FakeLanguageTag i();
     }
 
-    /** Stands in for Gboard's rph: g = language, j = region. */
+    /** Stands in for Gboard's sfc: g = language, j = region. */
     public static final class FakeLanguageTag {
         public final String g;
         public final String j;
@@ -638,7 +638,7 @@ public final class GboardPersonalDictionaryReflectionGatewayTest {
             this.b = helper;
         }
 
-        static void f() {
+        static void h() {
             notified++;
         }
     }

@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import dev.jason.gboardpatches.extension.R;
 import dev.jason.gboardpatches.extension.settings.GboardPatchesFeatureAvailability;
+import dev.jason.gboardpatches.extension.settings.GboardPatchesIcons;
 import dev.jason.gboardpatches.extension.settings.GboardPatchesSettingsContract;
 import dev.jason.gboardpatches.extension.settings.GboardSettingsText;
 
@@ -53,6 +54,16 @@ public final class GboardExtendedDictionarySettingsFeature
     @Override
     public String getEntrySummary() {
         return entrySummary;
+    }
+
+    @Override
+    public int getEntryIcon() {
+        return GboardPatchesIcons.MENU_BOOK;
+    }
+
+    @Override
+    public String getEntryTone() {
+        return "violet";
     }
 
     @Override

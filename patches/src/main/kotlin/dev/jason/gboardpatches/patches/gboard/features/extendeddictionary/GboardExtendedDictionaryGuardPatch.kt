@@ -7,22 +7,22 @@ import dev.jason.gboardpatches.patches.gboard.shared.findMutableMethodOrThrow
 import dev.jason.gboardpatches.patches.gboard.shared.mutableFieldOrThrow
 import dev.jason.gboardpatches.patches.shared.Constants.COMPATIBILITY_GBOARD
 
-private const val DATABASE = "Lqcj;"
-private const val DATABASE_BASE = "Lqcg;"
-private const val LANGUAGE_TAG = "Lrph;"
+private const val DATABASE = "Lqqc;"
+private const val DATABASE_BASE = "Lqpz;"
+private const val LANGUAGE_TAG = "Lsfc;"
 
 internal val EXTENDED_DICTIONARY_RUNTIME_TARGETS = listOf(
     GboardMethodTarget(DATABASE, "<init>", listOf("Landroid/content/Context;"), "V"),
-    GboardMethodTarget(DATABASE_BASE, "f", emptyList(), "V"),
+    GboardMethodTarget(DATABASE_BASE, "h", emptyList(), "V"),
     GboardMethodTarget(LANGUAGE_TAG, "g", listOf("Ljava/lang/String;"), LANGUAGE_TAG),
     // Enabled input languages, read for the "no matching language" import warning only.
-    GboardMethodTarget("Lort;", "a", emptyList(), "Lvvw;"),
-    GboardMethodTarget("Loru;", "i", emptyList(), LANGUAGE_TAG),
+    GboardMethodTarget("Lpeu;", "a", emptyList(), "Lwns;"),
+    GboardMethodTarget("Lpev;", "i", emptyList(), LANGUAGE_TAG),
 )
 
 internal val EXTENDED_DICTIONARY_RUNTIME_FIELDS = listOf(
     GboardFieldTarget(DATABASE_BASE, "a", "Ljava/lang/String;"),
-    GboardFieldTarget(DATABASE_BASE, "b", "Lqcd;"),
+    GboardFieldTarget(DATABASE_BASE, "b", "Lqpw;"),
     GboardFieldTarget(LANGUAGE_TAG, "g", "Ljava/lang/String;"),
     GboardFieldTarget(LANGUAGE_TAG, "j", "Ljava/lang/String;"),
 )

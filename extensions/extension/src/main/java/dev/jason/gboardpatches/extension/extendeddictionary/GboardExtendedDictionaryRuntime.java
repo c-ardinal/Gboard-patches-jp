@@ -6,7 +6,7 @@ import android.util.Log;
 import dev.jason.gboardpatches.extension.R;
 import dev.jason.gboardpatches.extension.settings.GboardSettingsText;
 
-/** Called from Gboard's personal dictionary language label (qcb.b); never throws. */
+/** Called from Gboard's personal dictionary language label (qpu.b); never throws. */
 public final class GboardExtendedDictionaryRuntime {
     private static final String TAG = "GboardExtendedDictionary";
 

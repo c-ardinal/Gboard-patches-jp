@@ -9,13 +9,13 @@ import app.morphe.patcher.util.smali.ExternalLabel
 import com.android.tools.smali.dexlib2.builder.MutableMethodImplementation
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
-import dev.jason.gboardpatches.patches.gboard.features.japaneseqwertyglide.GboardJapaneseQwertyGlide1803Targets.DELIGHT5_FIELD
-import dev.jason.gboardpatches.patches.gboard.features.japaneseqwertyglide.GboardJapaneseQwertyGlide1803Targets.FIND_VIEW_BY_ID
-import dev.jason.gboardpatches.patches.gboard.features.japaneseqwertyglide.GboardJapaneseQwertyGlide1803Targets.HANDLER_CONTEXT_MANAGER_FIELD
-import dev.jason.gboardpatches.patches.gboard.features.japaneseqwertyglide.GboardJapaneseQwertyGlide1803Targets.HANDLER_INFO_ARRAY
-import dev.jason.gboardpatches.patches.gboard.features.japaneseqwertyglide.GboardJapaneseQwertyGlide1803Targets.MANAGER_DELEGATE_FIELD
-import dev.jason.gboardpatches.patches.gboard.features.japaneseqwertyglide.GboardJapaneseQwertyGlide1803Targets.MANAGER_HANDLER_INFOS_FIELD
-import dev.jason.gboardpatches.patches.gboard.features.japaneseqwertyglide.GboardJapaneseQwertyGlide1803Targets.VIEW_DEF_HANDLER_INFOS_FIELD
+import dev.jason.gboardpatches.patches.gboard.features.japaneseqwertyglide.GboardJapaneseQwertyGlideTargets.DELIGHT5_FIELD
+import dev.jason.gboardpatches.patches.gboard.features.japaneseqwertyglide.GboardJapaneseQwertyGlideTargets.FIND_VIEW_BY_ID
+import dev.jason.gboardpatches.patches.gboard.features.japaneseqwertyglide.GboardJapaneseQwertyGlideTargets.HANDLER_CONTEXT_MANAGER_FIELD
+import dev.jason.gboardpatches.patches.gboard.features.japaneseqwertyglide.GboardJapaneseQwertyGlideTargets.HANDLER_INFO_ARRAY
+import dev.jason.gboardpatches.patches.gboard.features.japaneseqwertyglide.GboardJapaneseQwertyGlideTargets.MANAGER_DELEGATE_FIELD
+import dev.jason.gboardpatches.patches.gboard.features.japaneseqwertyglide.GboardJapaneseQwertyGlideTargets.MANAGER_HANDLER_INFOS_FIELD
+import dev.jason.gboardpatches.patches.gboard.features.japaneseqwertyglide.GboardJapaneseQwertyGlideTargets.VIEW_DEF_HANDLER_INFOS_FIELD
 import dev.jason.gboardpatches.patches.gboard.shared.GboardMethodTarget
 import dev.jason.gboardpatches.patches.gboard.shared.VerifiedTransformationPlan
 import dev.jason.gboardpatches.patches.gboard.shared.VerifiedTransformationState
@@ -114,13 +114,13 @@ private val INPUT_AREA_CALL = RuntimeCallId.JAPANESE_QWERTY_GLIDE_RUNTIME_OVERRI
 private val EVENT_CALL = RuntimeCallId.JAPANESE_QWERTY_GLIDE_RUNTIME_HANDLE_HANDLER_EVENT
 private val SESSION_CALL = RuntimeCallId.JAPANESE_QWERTY_GLIDE_RUNTIME_ON_INPUT_SESSION_CHANGED
 
-// ozj.<init>: index 13 is `iput-object v2, p0, h` (a branch join point), so the delegate goes
+// pmm.<init>: index 13 is `iput-object v2, p0, h` (a branch join point), so the delegate goes
 // after it and re-stores h; the stock array-length at 0x0024 then sizes g/t from the new array.
 private const val ATTACH_INSERT_INDEX = 14
 
 internal val JAPANESE_GLIDE_HOOKS = listOf(
     JapaneseGlideHook(
-        target = GboardJapaneseQwertyGlide1803Targets.managerInit,
+        target = GboardJapaneseQwertyGlideTargets.managerInit,
         call = ATTACH_CALL,
         registerCount = 7,
         delegateRange = ATTACH_INSERT_INDEX..ATTACH_INSERT_INDEX + 3,
@@ -154,7 +154,7 @@ internal val JAPANESE_GLIDE_HOOKS = listOf(
         },
     ),
     JapaneseGlideHook(
-        target = GboardJapaneseQwertyGlide1803Targets.gestureReady,
+        target = GboardJapaneseQwertyGlideTargets.gestureReady,
         call = READY_CALL,
         registerCount = 2,
         delegateRange = 0..4,
@@ -182,7 +182,7 @@ internal val JAPANESE_GLIDE_HOOKS = listOf(
         },
     ),
     JapaneseGlideHook(
-        target = GboardJapaneseQwertyGlide1803Targets.gestureInputArea,
+        target = GboardJapaneseQwertyGlideTargets.gestureInputArea,
         call = INPUT_AREA_CALL,
         registerCount = 2,
         delegateRange = 0..4,
@@ -211,7 +211,7 @@ internal val JAPANESE_GLIDE_HOOKS = listOf(
         },
     ),
     JapaneseGlideHook(
-        target = GboardJapaneseQwertyGlide1803Targets.handlerContextSend,
+        target = GboardJapaneseQwertyGlideTargets.handlerContextSend,
         call = EVENT_CALL,
         registerCount = 2,
         patchedRegisterCount = 3,
@@ -222,7 +222,7 @@ internal val JAPANESE_GLIDE_HOOKS = listOf(
                 instructions[0].isFieldReference(HANDLER_CONTEXT_MANAGER_FIELD) &&
                 instructions[1].isRegisterOperation("IGET_OBJECT", 0, 0) &&
                 instructions[1].isFieldReference(MANAGER_DELEGATE_FIELD) &&
-                instructions[2].isInvoke("INVOKE_INTERFACE", GboardJapaneseQwertyGlide1803Targets.MANAGER_SEND, 0, 1) &&
+                instructions[2].isInvoke("INVOKE_INTERFACE", GboardJapaneseQwertyGlideTargets.MANAGER_SEND, 0, 1) &&
                 instructions[3].isOpcode("RETURN_VOID")
         },
         isPatchedStockShape = { instructions ->
@@ -231,7 +231,7 @@ internal val JAPANESE_GLIDE_HOOKS = listOf(
                 instructions[0].isFieldReference(HANDLER_CONTEXT_MANAGER_FIELD) &&
                 instructions[1].isRegisterOperation("IGET_OBJECT", 0, 0) &&
                 instructions[1].isFieldReference(MANAGER_DELEGATE_FIELD) &&
-                instructions[2].isInvoke("INVOKE_INTERFACE", GboardJapaneseQwertyGlide1803Targets.MANAGER_SEND, 0, 2) &&
+                instructions[2].isInvoke("INVOKE_INTERFACE", GboardJapaneseQwertyGlideTargets.MANAGER_SEND, 0, 2) &&
                 instructions[3].isOpcode("RETURN_VOID")
         },
         isDelegateShape = { block ->
@@ -242,7 +242,7 @@ internal val JAPANESE_GLIDE_HOOKS = listOf(
         },
         mutate = {},
         replace = { original ->
-            // The stock method has no locals. Reserve v0 so p0 remains the ozi context.
+            // The stock method has no locals. Reserve v0 so p0 remains the pml context.
             ImmutableMethod(
                 original.definingClass, original.name, original.parameters, original.returnType,
                 original.accessFlags, original.annotations, original.hiddenApiRestrictions,
@@ -255,48 +255,48 @@ internal val JAPANESE_GLIDE_HOOKS = listOf(
                 :stock
                 iget-object v0, p0, $HANDLER_CONTEXT_MANAGER_FIELD
                 iget-object v0, v0, $MANAGER_DELEGATE_FIELD
-                invoke-interface {v0, p1}, ${GboardJapaneseQwertyGlide1803Targets.MANAGER_SEND}
+                invoke-interface {v0, p1}, ${GboardJapaneseQwertyGlideTargets.MANAGER_SEND}
                 return-void
             """.trimIndent()) }
         },
     ),
-    sessionHook(GboardJapaneseQwertyGlide1803Targets.keyboardActivate, 4) { instructions ->
+    sessionHook(GboardJapaneseQwertyGlideTargets.keyboardActivate, 3) { instructions ->
         instructions.firstOrNull()?.isReference("Keyboard.onActivate") == true &&
             instructions[1].isMethodReference("Landroid/os/Trace;->beginSection(Ljava/lang/String;)V") &&
-            instructions[3].isFieldReference("${GboardJapaneseQwertyGlide1803Targets.KEYBOARD}->D:Z")
+            instructions[3].isFieldReference("${GboardJapaneseQwertyGlideTargets.KEYBOARD}->G:Z")
     },
     JapaneseGlideHook(
-        target = GboardJapaneseQwertyGlide1803Targets.keyboardDeactivate,
+        target = GboardJapaneseQwertyGlideTargets.keyboardDeactivate,
         call = SESSION_CALL,
         registerCount = 10,
         delegateRange = 0..3,
         isStockShape = { instructions ->
             instructions.firstOrNull()?.isRegisterOperation("IGET_BOOLEAN", 0, 9) == true &&
-                instructions.first().isFieldReference("${GboardJapaneseQwertyGlide1803Targets.KEYBOARD}->D:Z") &&
+                instructions.first().isFieldReference("${GboardJapaneseQwertyGlideTargets.KEYBOARD}->G:Z") &&
                 instructions.last().isOpcode("RETURN_VOID")
         },
         isDelegateShape = { block ->
             block[0].isRegisterOperation("IGET_BOOLEAN", 0, 9) &&
-                block[0].isFieldReference("${GboardJapaneseQwertyGlide1803Targets.KEYBOARD}->D:Z") &&
+                block[0].isFieldReference("${GboardJapaneseQwertyGlideTargets.KEYBOARD}->G:Z") &&
                 block[1].isRegisterOperation("IF_EQZ", 0) &&
                 block[2].isInvoke("INVOKE_STATIC", abiReference(SESSION_CALL)) && block[3].isOpcode("NOP")
         },
         mutate = {
             // An inactive keyboard has no session to invalidate.
             addEntryInterceptor("""
-                iget-boolean v0, p0, ${GboardJapaneseQwertyGlide1803Targets.KEYBOARD}->D:Z
+                iget-boolean v0, p0, ${GboardJapaneseQwertyGlideTargets.KEYBOARD}->G:Z
                 if-eqz v0, :$CONTINUE_LABEL
                 ${RuntimeCallEmitter.invoke(SESSION_CALL, "")}
             """.trimIndent())
         },
     ),
     JapaneseGlideHook(
-        target = GboardJapaneseQwertyGlide1803Targets.japaneseImeEvent,
+        target = GboardJapaneseQwertyGlideTargets.japaneseImeEvent,
         call = RuntimeCallId.JAPANESE_QWERTY_GLIDE_SPACING_OBSERVE_IME,
         registerCount = 15,
         delegateRange = 0..0,
         isStockShape = { instructions ->
-            instructions.firstOrNull()?.isInvoke("INVOKE_VIRTUAL", "Lnur;->g()Lpnu;", 14) == true &&
+            instructions.firstOrNull()?.isInvoke("INVOKE_VIRTUAL", "Lohe;->g()Lqbc;", 14) == true &&
                 instructions[1].isRegisterOperation("MOVE_RESULT_OBJECT", 0) &&
                 instructions.last().isOpcode("RETURN")
         },
@@ -308,28 +308,28 @@ internal val JAPANESE_GLIDE_HOOKS = listOf(
         },
     ),
     JapaneseGlideHook(
-        target = GboardJapaneseQwertyGlide1803Targets.mozcCommit,
+        target = GboardJapaneseQwertyGlideTargets.mozcCommit,
         call = RuntimeCallId.JAPANESE_QWERTY_GLIDE_SPACING_APPEND_COMMIT,
         registerCount = 11,
         delegateRange = 0..2,
         isStockShape = { instructions ->
             instructions.firstOrNull()?.isRegisterOperation("IGET_OBJECT", 0, 8) == true &&
-                instructions.first().isFieldReference("Llxn;->e:Llxt;") &&
+                instructions.first().isFieldReference("Lmiz;->e:Lmjf;") &&
                 instructions[1].isRegisterOperation("IF_NEZ", 0) &&
                 instructions[2].isRegisterOperation("SGET_OBJECT", 0) &&
-                instructions[2].isFieldReference("Llxt;->a:Llxt;") &&
+                instructions[2].isFieldReference("Lmjf;->a:Lmjf;") &&
                 instructions.last().isOpcode("RETURN_OBJECT")
         },
         isDelegateShape = { block ->
             block[0].isInvoke("INVOKE_STATIC", abiReference(RuntimeCallId.JAPANESE_QWERTY_GLIDE_SPACING_APPEND_COMMIT), 7, 8, 10) &&
                 block[1].isRegisterOperation("MOVE_RESULT_OBJECT", 8) &&
-                block[2].isRegisterOperation("CHECK_CAST", 8) && block[2].isReference("Llxn;")
+                block[2].isRegisterOperation("CHECK_CAST", 8) && block[2].isReference("Lmiz;")
         },
         mutate = {
             addInstructions(0, """
                 ${RuntimeCallEmitter.invoke(RuntimeCallId.JAPANESE_QWERTY_GLIDE_SPACING_APPEND_COMMIT, "p0, p1, p3")}
                 move-result-object p1
-                check-cast p1, Llxn;
+                check-cast p1, Lmiz;
             """.trimIndent())
         },
     ),

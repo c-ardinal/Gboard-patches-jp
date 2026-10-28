@@ -21,7 +21,7 @@ import org.junit.Test
 
 class GboardJapaneseQwertyGlideHookTest {
     private val hook = JAPANESE_GLIDE_HOOKS.single {
-        it.target == GboardJapaneseQwertyGlide1803Targets.handlerContextSend
+        it.target == GboardJapaneseQwertyGlideTargets.handlerContextSend
     }
 
     @Test
@@ -42,10 +42,10 @@ class GboardJapaneseQwertyGlideHookTest {
         // The false result jumps past return-void directly to the stock dispatch.
         assertEquals(3, (instructions[2] as OffsetInstruction).codeOffset)
         assertTrue(instructions[4].isRegisterOperation("IGET_OBJECT", 0, 1))
-        assertTrue(instructions[4].isFieldReference(GboardJapaneseQwertyGlide1803Targets.HANDLER_CONTEXT_MANAGER_FIELD))
+        assertTrue(instructions[4].isFieldReference(GboardJapaneseQwertyGlideTargets.HANDLER_CONTEXT_MANAGER_FIELD))
         assertTrue(instructions[5].isRegisterOperation("IGET_OBJECT", 0, 0))
-        assertTrue(instructions[5].isFieldReference(GboardJapaneseQwertyGlide1803Targets.MANAGER_DELEGATE_FIELD))
-        assertTrue(instructions[6].isInvoke("INVOKE_INTERFACE", GboardJapaneseQwertyGlide1803Targets.MANAGER_SEND, 0, 2))
+        assertTrue(instructions[5].isFieldReference(GboardJapaneseQwertyGlideTargets.MANAGER_DELEGATE_FIELD))
+        assertTrue(instructions[6].isInvoke("INVOKE_INTERFACE", GboardJapaneseQwertyGlideTargets.MANAGER_SEND, 0, 2))
     }
 
     @Test
@@ -72,14 +72,14 @@ class GboardJapaneseQwertyGlideHookTest {
 
     private fun stockHandler(dispatchRegisters: String = "v0, v1"): MutableMethod =
         ImmutableMethod(
-            "Lozi;", "n", listOf(ImmutableMethodParameter("Lnur;", emptySet(), null)), "V",
+            "Lpml;", "n", listOf(ImmutableMethodParameter("Lohe;", emptySet(), null)), "V",
             AccessFlags.PUBLIC.value or AccessFlags.FINAL.value, emptySet(), emptySet(),
             MutableMethodImplementation(2),
         ).toMutable().apply {
             addInstructions(0, """
-                iget-object v0, v0, ${GboardJapaneseQwertyGlide1803Targets.HANDLER_CONTEXT_MANAGER_FIELD}
-                iget-object v0, v0, ${GboardJapaneseQwertyGlide1803Targets.MANAGER_DELEGATE_FIELD}
-                invoke-interface {$dispatchRegisters}, ${GboardJapaneseQwertyGlide1803Targets.MANAGER_SEND}
+                iget-object v0, v0, ${GboardJapaneseQwertyGlideTargets.HANDLER_CONTEXT_MANAGER_FIELD}
+                iget-object v0, v0, ${GboardJapaneseQwertyGlideTargets.MANAGER_DELEGATE_FIELD}
+                invoke-interface {$dispatchRegisters}, ${GboardJapaneseQwertyGlideTargets.MANAGER_SEND}
                 return-void
             """.trimIndent())
         }

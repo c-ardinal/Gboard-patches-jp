@@ -50,16 +50,16 @@ class GboardJapaneseQwertyGlidePatchContractTest {
         )
         assertEquals(
             listOf(
-                "Lozj;-><init>(Landroid/content/Context;Loxv;" +
+                "Lpmm;-><init>(Landroid/content/Context;Lpkz;" +
                     "Lcom/google/android/libraries/inputmethod/metadata/KeyboardDef;" +
-                    "Lcom/google/android/libraries/inputmethod/metadata/KeyboardViewDef;Loxu;)V",
+                    "Lcom/google/android/libraries/inputmethod/metadata/KeyboardViewDef;Lpky;)V",
                 "$GESTURE_HANDLER->r()Z",
                 "$GESTURE_HANDLER->c(Landroid/view/View;)Landroid/view/ViewGroup;",
-                "Lozi;->n(Lnur;)V",
+                "Lpml;->n(Lohe;)V",
                 "Lcom/google/android/libraries/inputmethod/keyboard/impl/Keyboard;->e(Landroid/view/inputmethod/EditorInfo;Ljava/lang/Object;)V",
                 "Lcom/google/android/libraries/inputmethod/keyboard/impl/Keyboard;->h()V",
-                "Lcom/google/android/apps/inputmethod/libs/mozc/ime/SimpleJapaneseIme;->q(Lnur;)Z",
-                "Lhzu;->b(Llxn;ZLandroid/view/inputmethod/EditorInfo;)Ljava/lang/String;",
+                "Lcom/google/android/apps/inputmethod/libs/mozc/ime/SimpleJapaneseIme;->p(Lohe;)Z",
+                "Liia;->b(Lmiz;ZLandroid/view/inputmethod/EditorInfo;)Ljava/lang/String;",
             ),
             JAPANESE_GLIDE_HOOKS.map { hook -> hook.target.reference },
         )
@@ -67,7 +67,7 @@ class GboardJapaneseQwertyGlidePatchContractTest {
 
     private companion object {
         const val GBOARD_PACKAGE = "com.google.android.inputmethod.latin"
-        const val TARGET_VERSION = "18.0.3.954559732-release-arm64-v8a"
+        const val TARGET_VERSION = "18.5.4.993608717-release-arm64-v8a"
         const val GESTURE_HANDLER =
             "Lcom/google/android/apps/inputmethod/libs/latin5/handler/LatinGestureMotionEventHandler;"
     }
