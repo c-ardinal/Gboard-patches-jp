@@ -51,3 +51,31 @@ jobs:
             echo "::error::patches-list.json or patches-bundle.json differs from what Gradle generates. Commit the regenerated files."
             exit 1
           fi
+
+  release-notes-preview:
+    name: Japanese release notes preview
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      # Translates the release notes the next tag would publish, so the Japanese text
+      # can be reviewed in the job summary before tagging.
+      - name: Translate release notes
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet 'anthropic==2.4.0'
+          python -I tools/release-notes/translate_ja.py --bundle patches-bundle.json --out "$RUNNER_TEMP/release-notes.md"
+          {
+            echo "## Release notes preview"
+            echo
+            cat "$RUNNER_TEMP/release-notes.md"
+          } >> "$GITHUB_STEP_SUMMARY"
