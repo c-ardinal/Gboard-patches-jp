@@ -7,6 +7,7 @@ on:
 permissions:
   contents: read
   packages: read
+  pull-requests: write
 
 concurrency:
   group: pr-build-${{ github.event.pull_request.number }}
@@ -50,6 +51,50 @@ jobs:
           if ! git diff --exit-code -- patches-list.json patches-bundle.json; then
             echo "::error::patches-list.json or patches-bundle.json differs from what Gradle generates. Commit the regenerated files."
             exit 1
+          fi
+
+      - name: Resolve patch file
+        id: mpp
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^version *= *//p' gradle.properties | tr -d '[:space:]')"
+          file="patches/build/libs/patches-$version.mpp"
+          test -f "$file"
+          sha="${{ github.event.pull_request.head.sha }}"
+          {
+            echo "file=$file"
+            echo "name=patches-$version-pr${{ github.event.pull_request.number }}-${sha:0:7}"
+            echo "sha=${sha:0:7}"
+          } >> "$GITHUB_OUTPUT"
+
+      # The artifact holds the .mpp for testing on a device; GitHub serves it as a zip.
+      - name: Upload patch file
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.mpp.outputs.name }}
+          path: ${{ steps.mpp.outputs.file }}
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Comment download link on the PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          NAME: ${{ steps.mpp.outputs.name }}
+          URL: ${{ steps.upload.outputs.artifact-url }}
+          SHA: ${{ steps.mpp.outputs.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          marker='<!-- pr-build-mpp -->'
+          body="$(printf '%s\n### 実機テスト用パッチ\n\nコミット `%s` からビルドしたパッチです（ビルドとテストはすべて成功）。\n\n- ダウンロード: [%s](%s)（zip を展開すると `.mpp` が入っています。保存期間は 14 日です）\n- ビルドの記録: %s\n' "$marker" "$SHA" "$NAME" "$URL" "$RUN_URL")"
+          id="$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
+            --jq "[.[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\")))][0].id // empty" | head -n1)"
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -f body="$body" > /dev/null
+          else
+            gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$body" > /dev/null
           fi
 
   release-notes-preview:
