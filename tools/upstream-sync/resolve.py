@@ -18,8 +18,6 @@ ZH_FEATURES = "### ✨ 新功能"
 ZH_FIXES = "### 🐛 修復"
 EN_PLACEHOLDER_BULLET = "* **Gboard:** fill missing Japanese settings strings with English placeholders (translation pending)."
 ZH_PLACEHOLDER_BULLET = "* **Gboard:** 缺少日文的設定文字暫以英文填入（待翻譯）。"
-JA_FEATURES = "### ✨ 新機能"
-JA_PENDING_MARK = "（日本語の詳細は翻訳待ち）"
 JP_HEADING = re.compile(r"^## \[(?P<base>[^\]]+?)-jp\.\d+\]")
 ENTRY = re.compile(r'<plurals name="(?P<plural>[^"]+)"|<(?P<tag>string|item)\b(?P<attrs>[^>]*)>(?P<body>.*?)</(?P=tag)>', re.S)
 EN_TRANSLATION = re.compile(r'\n(?P<indent>[ \t]*)<translation locale="en">(?P<text>.*?)</translation>', re.S)
@@ -76,11 +74,6 @@ def new_section_body(upstream_sections, version, has_placeholders):
         body = append_bullet(body, EN_FEATURES, EN_PLACEHOLDER_BULLET, before=None)
         body = append_bullet(body, ZH_FEATURES, ZH_PLACEHOLDER_BULLET, before=ZH_FIXES)
     return body or f"{EN_FEATURES}\n\n* **Gboard:** sync with upstream {version}."
-
-
-def with_ja_section(body, version):
-    """Lead the release notes with a Japanese section; a maintainer replaces the pending mark with details."""
-    return f"{JA_FEATURES}\n\n* **Gboard:** 上流 {version} に同期しました。{JA_PENDING_MARK}\n\n{body}"
 
 
 def splice_changelog(upstream_text, fork_text, new_heading, new_body):
@@ -151,11 +144,6 @@ def pr_body(tag, version, resolved, placeholders):
         "",
         *([f"- `{key}`" for key in placeholders] or ["- none"]),
         "",
-        "## Japanese release notes",
-        "",
-        f"- Replace `{JA_PENDING_MARK}` in the `{version}` section of CHANGELOG.md and in "
-        "`patches-bundle.json` with the Japanese release notes before merging.",
-        "",
     ]
     return "\n".join(lines)
 
@@ -197,7 +185,7 @@ def resolve(repo, tag, slug, out):
     write_text(out / "placeholders.txt", "".join(f"{key}\n" for key in placeholders))
 
     upstream_changelog = git(repo, "show", "MERGE_HEAD:CHANGELOG.md")
-    body = with_ja_section(new_section_body(split_sections(upstream_changelog)[1], upstream_ver, bool(placeholders)), upstream_ver)
+    body = new_section_body(split_sections(upstream_changelog)[1], upstream_ver, bool(placeholders))
     heading = f"## [{version}](https://github.com/{slug}/compare/v{upstream_ver}...v{version}) ({now:%Y-%m-%d})"
     changelog = splice_changelog(upstream_changelog, git(repo, "show", "HEAD:CHANGELOG.md"), heading, body)
     write_text(root / "CHANGELOG.md", changelog)

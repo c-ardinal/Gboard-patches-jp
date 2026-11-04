@@ -40,6 +40,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.MORPHE_PACKAGES_TOKEN }}
         run: ./gradlew generatePatchesList :extensions:extension:testDebugUnitTest :extensions:calculator:testDebugUnitTest :patches:test :patches:buildAndroid --continue
 
+      - name: Release tooling tests
+        run: |
+          python3 -I -m unittest discover -s tools/upstream-sync -p "test_*.py"
+          python3 -I -m unittest discover -s tools/release-notes -p "test_*.py"
+
       - name: Check generated files are committed
         run: |
           if ! git diff --exit-code -- patches-list.json patches-bundle.json; then
