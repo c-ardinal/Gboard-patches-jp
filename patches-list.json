@@ -1,5 +1,5 @@
 {
-  "version": "4.0.0-jp.1",
+  "version": "4.1.1",
   "patches": [
     {
       "name": "AI Writing Tools",
@@ -146,6 +146,18 @@
       "options": []
     },
     {
+      "name": "Dictionaries & Predictions",
+      "description": "可選擇字典、預測及輸入修正的資源版本\nChoose resource versions for dictionaries, predictions, and input correction.",
+      "use": true,
+      "dependencies": [],
+      "compatiblePackages": {
+        "com.google.android.inputmethod.latin": [
+          "18.5.4.993608717-release-arm64-v8a"
+        ]
+      },
+      "options": []
+    },
+    {
       "name": "Emojis, stickers & GIFs Tab Order",
       "description": "自訂 Gboard「Emojis, stickers & GIFs」底部 tabs 的排序，支援拖曳調整\nCustomize the bottom tab order in Gboard's Emojis, stickers & GIFs panel with drag-and-drop reordering.",
       "use": true,
@@ -220,18 +232,6 @@
     {
       "name": "English QWERTY Up-Flick Uppercase",
       "description": "英文 QWERTY 鍵盤上滑大小寫\nFlick up on the English QWERTY keyboard to toggle uppercase and lowercase.",
-      "use": true,
-      "dependencies": [],
-      "compatiblePackages": {
-        "com.google.android.inputmethod.latin": [
-          "18.5.4.993608717-release-arm64-v8a"
-        ]
-      },
-      "options": []
-    },
-    {
-      "name": "Extended Dictionary",
-      "description": "以 Gboard 個人字典格式批次匯入單字，並可只移除由此匯入的單字。\nBulk import a word list in Gboard's personal dictionary format, and remove only the words it imported.",
       "use": true,
       "dependencies": [],
       "compatiblePackages": {
@@ -326,9 +326,9 @@
       "options": []
     },
     {
-      "name": "Japanese QWERTY Glide",
-      "description": "在日文 QWERTY 鍵盤的 ABC 模式使用內建英文模型解碼滑行輸入的英文單字並傳送至 Mozc，附診斷日誌\nDecode glide-typed English words on the ABC layout of the Japanese QWERTY keyboard and pass them to Mozc. Uses the bundled English model; diagnostic logging enabled.",
-      "use": false,
+      "name": "Key Shape Selection",
+      "description": "啟用圓角按鍵，主題詳情 > 按鍵形狀\nEnable Key shape in Theme details.",
+      "use": true,
       "dependencies": [],
       "compatiblePackages": {
         "com.google.android.inputmethod.latin": [
@@ -338,8 +338,8 @@
       "options": []
     },
     {
-      "name": "Key Shape Selection",
-      "description": "啟用圓角按鍵，主題詳情 > 按鍵形狀\nEnable Key shape in Theme details.",
+      "name": "Keypress Vibration Intensity Control",
+      "description": "將按鍵震動由持續時間改為力度控制。\nControl keypress vibration intensity instead of duration.",
       "use": true,
       "dependencies": [],
       "compatiblePackages": {
