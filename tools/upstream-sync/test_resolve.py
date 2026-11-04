@@ -58,6 +58,12 @@ class ChangelogTest(unittest.TestCase):
             + resolve.ZH_PLACEHOLDER_BULLET + "\n\n### 🐛 修復\n\n* **Gboard:** 修復 B。",
         )
 
+    def test_ja_section_leads_the_release_notes(self):
+        body = resolve.with_ja_section("### ✨ New Features\n\n* en", "2.0.0")
+        self.assertTrue(body.startswith(resolve.JA_FEATURES + "\n\n* **Gboard:** 上流 2.0.0 に同期しました。"))
+        self.assertIn(resolve.JA_PENDING_MARK, body)
+        self.assertTrue(body.endswith("\n\n### ✨ New Features\n\n* en"))
+
     def test_missing_feature_headings_are_created(self):
         body = "### 🐛 Bug Fixes\n\n* fix.\n\n### 🐛 修復\n\n* 修復。"
         body = resolve.append_bullet(body, resolve.EN_FEATURES, "* en")
@@ -122,6 +128,7 @@ class PostTextTest(unittest.TestCase):
         notes = resolve.release_notes("v2.0.0", "2.0.0-jp.1")
         self.assertIn("- `gboard_patches_a_title`", body)
         self.assertIn("`v2.0.0-jp.0`", notes)
+        self.assertIn(resolve.JA_PENDING_MARK, body)
         for text in (body, notes):
             self.assertNotRegex(text, r"https?://|www\.|@|#\d")
 
