@@ -1,6 +1,6 @@
 {
   "created_at": "2026-11-04T08:47:54",
-  "description": "### ✨ New Features\n\n* **Gboard:** fill missing Japanese settings strings with English placeholders (translation pending).\n\n### 🐛 Bug Fixes\n\n* **Gboard:** fix a crash when opening the keyboard on Android 13 and earlier.\n* **Gboard:** fix Android stopping Web Clipboard after 6 hours and a crash when restarting the service.\n\n### ✨ 新功能\n\n* **Gboard:** 缺少日文的設定文字暫以英文填入（待翻譯）。\n\n### 🐛 修復\n\n* **Gboard:** 修復在 Android 13 及更早版本上開啟鍵盤時閃退的問題。\n* **Gboard:** 修復 Web Clipboard 執行 6 小時後被 Android 停止，以及重新啟動服務時閃退的問題。",
+  "description": "### ✨ New Features\n\n* **Gboard:** add Japanese translations for the new settings strings.\n\n### 🐛 Bug Fixes\n\n* **Gboard:** fix a crash when opening the keyboard on Android 13 and earlier.\n* **Gboard:** fix Android stopping Web Clipboard after 6 hours and a crash when restarting the service.\n\n### ✨ 新功能\n\n* **Gboard:** 為新增的設定文字加入日文翻譯。\n\n### 🐛 修復\n\n* **Gboard:** 修復在 Android 13 及更早版本上開啟鍵盤時閃退的問題。\n* **Gboard:** 修復 Web Clipboard 執行 6 小時後被 Android 停止，以及重新啟動服務時閃退的問題。",
   "download_url": "https://github.com/c-ardinal/Gboard-patches-jp/releases/download/v4.1.1-jp.1/patches-4.1.1-jp.1.mpp",
   "signature_download_url": "",
   "version": "4.1.1-jp.1"

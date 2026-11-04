@@ -2,7 +2,7 @@
 
 ### ✨ New Features
 
-* **Gboard:** fill missing Japanese settings strings with English placeholders (translation pending).
+* **Gboard:** add Japanese translations for the new settings strings.
 
 ### 🐛 Bug Fixes
 
@@ -11,7 +11,7 @@
 
 ### ✨ 新功能
 
-* **Gboard:** 缺少日文的設定文字暫以英文填入（待翻譯）。
+* **Gboard:** 為新增的設定文字加入日文翻譯。
 
 ### 🐛 修復
 
