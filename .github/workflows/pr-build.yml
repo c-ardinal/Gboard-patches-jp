@@ -41,6 +41,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.MORPHE_PACKAGES_TOKEN }}
         run: ./gradlew generatePatchesList :extensions:extension:testDebugUnitTest :extensions:calculator:testDebugUnitTest :patches:test :patches:buildAndroid --continue
 
+      - name: TEMP dump regenerated settings search index
+        if: always()
+        env:
+          GITHUB_ACTOR: ${{ github.repository_owner }}
+          GITHUB_TOKEN: ${{ secrets.MORPHE_PACKAGES_TOKEN }}
+        run: |
+          ./gradlew :extensions:extension:testDebugUnitTest --tests '*GboardSettingsSearchIndexSnapshotTest*' -PupdateSettingsSearchIndex=true || true
+          echo "=====BEGIN INDEX====="
+          cat extensions/extension/src/main/java/dev/jason/gboardpatches/extension/settings/search/GboardSettingsSearchIndexData.java
+          echo "=====END INDEX====="
+
       - name: Release tooling tests
         run: |
           python3 -I -m unittest discover -s tools/upstream-sync -p "test_*.py"
