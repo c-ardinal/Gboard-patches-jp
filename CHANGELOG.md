@@ -8,7 +8,7 @@
 * **Gboard:** update morphe-patcher to **v2.1.0**.
 * **Gboard:** add a search button to the Patches settings page to quickly find settings.
 * **Gboard:** extend the G Logo on Spacebar patch with custom image support, a full-color Google G icon, and adjustable icon sizes.
-* **Gboard:** fill missing Japanese settings strings with English placeholders (translation pending).
+* **Gboard:** translate the new settings strings into Japanese.
 
 ### 🐛 Bug Fixes
 
@@ -25,7 +25,7 @@
 * **Gboard:** 將 morphe-patcher 更新至 **v2.1.0**。
 * **Gboard:** 在 Patches 設定頁面新增搜尋按鈕，方便快速尋找設定項目。
 * **Gboard:** 「G Logo on Spacebar」Patch 新增自訂圖片與「Google G（全彩）」圖示，並支援自訂圖示大小。
-* **Gboard:** 缺少日文的設定文字暫以英文填入（待翻譯）。
+* **Gboard:** 新增設定文字的日文翻譯。
 
 ### 🐛 修復
 
