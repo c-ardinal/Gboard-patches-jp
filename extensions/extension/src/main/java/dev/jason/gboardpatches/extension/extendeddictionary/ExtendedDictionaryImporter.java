@@ -116,7 +116,14 @@ final class ExtendedDictionaryImporter {
         void onProgress(int done, int total);
     }
 
-    /** Job-level progress: every phase reports its own units, and expected units ahead. */
+    /**
+     * Job-level progress: every phase reports its own units, and expected units ahead.
+     *
+     * <p>Keep lambdas and static methods out of this interface. D8 turns them into synthetic
+     * methods on the interface, and the patched Gboard then fails with
+     * IncompatibleClassChangeError when one is called. PhaseProgress and onlyPhase live on
+     * classes for that reason.
+     */
     interface JobProgress {
         void expect(PhasedEta.Phase phase, long units);
 
@@ -128,24 +135,40 @@ final class ExtendedDictionaryImporter {
 
         /** A throttled per-unit callback for one phase. */
         default Progress phase(PhasedEta.Phase phase) {
-            return new ProgressThrottle((done, total) -> onProgress(phase, done, total));
+            return new ProgressThrottle(new PhaseProgress(this, phase));
+        }
+    }
+
+    /** Forwards plain progress of one phase to its job. */
+    static final class PhaseProgress implements Progress {
+        private final JobProgress job;
+        private final PhasedEta.Phase phase;
+
+        PhaseProgress(JobProgress job, PhasedEta.Phase phase) {
+            this.job = job;
+            this.phase = phase;
         }
 
-        /** Adapts a plain callback that only wants one phase. */
-        static JobProgress only(PhasedEta.Phase wanted, Progress progress) {
-            return new JobProgress() {
-                @Override
-                public void expect(PhasedEta.Phase phase, long units) {
-                }
-
-                @Override
-                public void onProgress(PhasedEta.Phase phase, int done, int total) {
-                    if (phase == wanted) {
-                        progress.onProgress(done, total);
-                    }
-                }
-            };
+        @Override
+        public void onProgress(int done, int total) {
+            job.onProgress(phase, done, total);
         }
+    }
+
+    /** Adapts a plain callback that only wants one phase. */
+    static JobProgress onlyPhase(PhasedEta.Phase wanted, Progress progress) {
+        return new JobProgress() {
+            @Override
+            public void expect(PhasedEta.Phase phase, long units) {
+            }
+
+            @Override
+            public void onProgress(PhasedEta.Phase phase, int done, int total) {
+                if (phase == wanted) {
+                    progress.onProgress(done, total);
+                }
+            }
+        };
     }
 
     /** Passes on every PROGRESS_ROW_STEP rows, after PROGRESS_INTERVAL_NANOS, or at the end. */
@@ -192,7 +215,7 @@ final class ExtendedDictionaryImporter {
     static ImportResult importRows(PersonalDictionaryGateway gateway, ManagedEntryStore store,
             List<WordListParser.Row> rows, Progress progress, AtomicBoolean cancel) {
         return importRows(gateway, store, rows,
-                JobProgress.only(PhasedEta.Phase.INSERT, progress), cancel);
+                onlyPhase(PhasedEta.Phase.INSERT, progress), cancel);
     }
 
     static ImportResult importRows(PersonalDictionaryGateway gateway, ManagedEntryStore store,
@@ -426,7 +449,7 @@ final class ExtendedDictionaryImporter {
     static RemoveResult removeAll(PersonalDictionaryGateway gateway, ManagedEntryStore store,
             Progress progress, boolean includeUntracked) {
         return removeAll(gateway, store,
-                JobProgress.only(PhasedEta.Phase.DELETE, progress), includeUntracked);
+                onlyPhase(PhasedEta.Phase.DELETE, progress), includeUntracked);
     }
 
     static RemoveResult removeAll(PersonalDictionaryGateway gateway, ManagedEntryStore store,

@@ -1,354 +1,63 @@
-<h1 align="center">Gboard Patches</h1>
+<h1 align="center">Gboard Patches JP</h1>
 
 <p align="center">
-  Morphe patches for Gboard with a mix of global improvements and Taiwan-focused enhancements.
+  全世界向けの機能改善と日本語入力向けの独自機能を搭載した、Gboard 用 Morphe パッチ
 </p>
 
-## Overview
+## 概要
 
-Gboard Patches is a public Morphe source for a curated set of Gboard enhancements, including both global usability improvements and Taiwan-focused features for local input habits and day-to-day use. The Patches settings UI is available in English, Traditional Chinese, and Japanese. This repository is a fork of [jasonwu1994/Gboard-patches](https://github.com/jasonwu1994/Gboard-patches) that adds Japan-focused features on top of the upstream patches.
+Gboard Patches JP は、[jasonwu1994/Gboard-patches](https://github.com/jasonwu1994/Gboard-patches) のフォークです。上流の全パッチに加え、日本語入力向けの独自機能を搭載しています。
 
-## Included Patches
+Patches 設定画面の日本語訳はフォーク元のv4.5.0で正式対応されました。これに伴い本パッチが提供していた設定画面の日本語訳はv4.5.0-jp.1で廃止しました。
 
-### Project-Built Features
+## 収録パッチ
 
-Features designed and built by this project rather than simply unlocking an existing Gboard flag.
-
-<details>
-  <summary><code>Dictionaries &amp; Predictions</code></summary>
-
-  Choose resource versions for dictionaries, predictions, and input correction.
-</details>
+本リポジトリ独自のパッチです。各項目の名称は、Morphe 上で表示されるパッチ名です。
 
 <details>
-  <summary><code>Clipboard Enhancements</code></summary>
+  <summary><code>Japanese QWERTY Glide</code></summary>
 
-  Lets you enhance clipboard retention time, item count limits, preview lines, countdown and creation-time labels, order index, grid columns, and optionally render only the first 1,000 characters on each clipboard card.
-</details>
-
-<details>
-  <summary><code>Web Clipboard</code></summary>
-
-  Hosts a phone-powered Web Clipboard portal that lets desktop browsers sync with Gboard over the same LAN, with a pairing code gate and an optional Quick Settings Tile.
-
-  Preview:
-
-  <img alt="Web Clipboard pairing gate" src="assets/features/web-clipboard/01-pairing-gate.png" width="720">
-
-  <img alt="Web Clipboard conversation view" src="assets/features/web-clipboard/02-conversation-view.png" width="720">
-
-</details>
-
-<details>
-  <summary><code>Floating Web Search</code></summary>
-
-  Open a floating web page directly from Gboard to quickly search for the information you need.
-</details>
-
-<details>
-  <summary><code>Custom Theme</code></summary>
-
-Import custom ZIP themes and beautiful themes from the official Rboard repository.
-</details>
-
-<details>
-  <summary><code>Frosted Glass</code></summary>
-
-  Adds live background blur and custom-theme transparency to the keyboard. Available on Android 12+ devices that support cross-window blur, with custom themes such as Animal Black.
-</details>
-
-<details>
-  <summary><code>FTP Server</code></summary>
-
-  Hosts an FTP server on your phone so desktop FTP clients can browse, upload, download, and resume file transfers over the same LAN. It supports anonymous or password-protected access, a configurable control and passive port range, read-only mode, <code>/sdcard</code> or a user-selected folder as the root, live transfer progress, retained partial uploads, and an optional Quick Settings Tile.
-</details>
-
-<details>
-  <summary><code>Long-Press Editing Shortcuts</code></summary>
-
-  Add Select all, Undo, Copy, Cut, Paste, and Redo long-press shortcuts to English QWERTY and Zhuyin, with an optional globe-key drag gesture that follows the same physical key positions across supported alphabet layouts.
-</details>
-
-<details>
-  <summary><code>Toolbar Editing Buttons</code></summary>
-
-  Add Select All, Copy, Cut and Paste to the menu. Drag them to the top toolbar and
-  use them with different keyboard languages in supported editors.
-</details>
-
-<details>
-  <summary><code>Swipeable Custom Top Row</code></summary>
-
-  Lets you swipe the keyboard top row horizontally to open customizable text and JavaScript slots.
-</details>
-
-<details>
-  <summary><code>Incognito Mode Toggle</code></summary>
-
-  Add an Incognito toggle to the Access Point toolbar and configure clipboard and voice typing availability while Incognito mode is active.
-</details>
-
-<details>
-  <summary><code>Custom Symbols</code></summary>
-
-  Adds a dedicated symbols tab and a quick access entry from the comma long-press popup.
-</details>
-
-<details>
-  <summary><code>Simple Calculator</code></summary>
-
-  Adds an optional inline calculator for arithmetic expressions typed in any text field. The result appears in Gboard's suggestion row; tap it to replace the expression, or long-press it to copy the result.
-</details>
-
-<details>
-  <summary><code>Swipe Down to Dismiss Keyboard</code></summary>
-
-  Swipe down from the suggestions or toolbar to close the keyboard.
-</details>
-
-<details>
-  <summary><code>Shift + Backspace Forward Delete</code></summary>
-
-  Hold Shift and press Backspace to delete the character after the cursor, like the Delete key on a computer keyboard.
-</details>
-
-<details>
-  <summary><code>G Logo on Spacebar</code></summary>
-
-  Show a built-in icon or your own PNG, WebP, or JPEG on the spacebar. Keep its original colors or choose a single color, adjust its size, and include imported images in settings backups.
-</details>
-
-<details>
-  <summary><code>Rounded Keyboard Panel</code></summary>
-
-  Customize which corners of the keyboard panel are rounded, and set the top and bottom radii separately.
-</details>
-
-<details>
-  <summary><code>Latin Globe Key Ignore Interval</code></summary>
-
-  Add an independent English globe key ignore interval override for post-typing language-switch delay.
-</details>
-
-<details>
-  <summary><code>Emojis, stickers & GIFs Tab Order</code></summary>
-
-Customize the bottom tab order in Gboard's Emojis, stickers & GIFs panel with drag-and-drop reordering.
-</details>
-
-<details>
-  <summary><code>Backup &amp; Restore</code></summary>
-
-  Exports all Gboard Patches settings to a portable JSON backup and restores only the modules you select, with per-module and per-key results. It also exports, compares, and restores Gboard's raw PB/XML flag-store files.
+  日本語キーボードの ABC レイアウト上で、英単語のグライド入力に対応します。入力途中の候補表示と、確定時の半角スペース挿入にも対応します。既定値は無効です。
 </details>
 
 <details>
   <summary><code>Extended Dictionary</code></summary>
 
-  Bulk imports word lists in Gboard's own word-list format (text or zip) into the personal dictionary. Imported words are kept in their own "(Extended)" sections of the word list so your own entries stay untouched, Japanese entries get a part of speech so Mozc uses them, and removal deletes only what was imported. It also raises Gboard's Mozc user-dictionary import cap from 200,000 to 1,000,000 entries. Ready-made Japanese word lists (SudachiDict-derived and Wikidata-derived) are published at <a href="https://github.com/c-ardinal/gboard-extended-dictionary">c-ardinal/gboard-extended-dictionary</a>.
+  Gboard 標準の単語リスト形式（テキストまたは ZIP）のファイルを、単語リストへ一括インポートします。インポートした単語は単語リスト内の専用区画「（拡張）」へ格納するため、利用者自身の登録単語には影響しません。日本語の単語には品詞を付与して Mozc での利用に対応し、削除時はインポート済みの単語のみを削除します。Gboard の Mozc ユーザー辞書のインポート上限も 200,000 件から 1,000,000 件へ拡大します。日本語用の単語リスト（SudachiDict 由来、Wikidata 由来）は <a href="https://github.com/c-ardinal/gboard-extended-dictionary">c-ardinal/gboard-extended-dictionary</a> で公開しています。
 </details>
 
+## 導入方法
 
-### Gboard Feature Unlocks
+本リポジトリを Morphe のソースとして追加します。
 
-Features already present in Gboard that are exposed by enabling hidden settings, rollout gates, or built-in behavior.
+- [Morphe で開く](https://morphe.software/add-source?github=c-ardinal/Gboard-patches-jp)
+- 手動追加の場合は `https://github.com/c-ardinal/Gboard-patches-jp` を入力
 
-<details>
-  <summary><code>Keypress Vibration Intensity Control</code></summary>
+## ビルド方法
 
-  Control keypress vibration intensity instead of duration.
-</details>
+ローカル環境での Gradle 実行前に、以下のいずれかの方法で Morphe の GitHub Packages レジストリへの認証情報を設定します。
 
-<details>
-  <summary><code>AI Writing Tools</code></summary>
+- `~/.gradle/gradle.properties` へ `gpr.user` と `gpr.key` を記述
+- 環境変数 `GITHUB_ACTOR` と `GITHUB_TOKEN` を設定
 
-  Enables the <code>Text correction &gt; Writing tools</code> setting with support for all languages.
-</details>
-
-<details>
-  <summary><code>Advanced Voice Typing</code></summary>
-
-  Enable Advanced Voice Typing with automatic punctuation, and separately enable automatic punctuation for Traditional Chinese voice typing, which does not support Advanced Voice Typing.
-</details>
-
-<details>
-  <summary><code>Enable OCR / Scan Text</code></summary>
-
-  Enable the OCR / Scan Text feature with Latin, Chinese, Japanese, Korean, and Devanagari recognition backends.
-</details>
-
-<details>
-  <summary><code>English QWERTY Up-Flick Uppercase</code></summary>
-
-  Flick up on the English QWERTY keyboard to toggle uppercase and lowercase.
-</details>
-
-<details>
-  <summary><code>Enable Inline Autofill Suggestions</code></summary>
-
-  Enables inline autofill suggestions in supported contexts.
-</details>
-
-<details>
-  <summary><code>Grammar Checker</code></summary>
-
-  Enables the <code>Text correction &gt; Grammar check</code> setting and its related rollout gate.
-</details>
-
-<details>
-  <summary><code>Inline Suggestions</code></summary>
-
-  Enables the <code>Text correction &gt; Smart Compose</code> setting and its related rollout gate.
-</details>
-
-<details>
-  <summary><code>Key Shape Selection</code></summary>
-
-  Enables the <code>Key shape</code> option inside theme details without forcing rounded keys by default.
-</details>
-
-<details>
-  <summary><code>Use Bluetooth Microphone</code></summary>
-
-  Enables the <code>Voice typing &gt; Use Bluetooth microphone</code> setting and its related rollout gate.
-</details>
-
-<details>
-  <summary><code>Change emoji size</code></summary>
-
-  Enables Gboard's emoji size setting.
-</details>
-
-<details>
-  <summary><code>Enable cursor trackpad mode</code></summary>
-
-  Enables the long-press-spacebar trackpad, cursor lock mode, and the required scrub-move preference.
-</details>
-
-<details>
-  <summary><code>Enable split keyboard</code></summary>
-
-  Enables Gboard's split keyboard layout.
-</details>
-
-<details>
-  <summary><code>Enable accessibility layout</code></summary>
-
-  Enables accessibility layout.
-</details>
-
-<details>
-  <summary><code>Quick Insert</code></summary>
-
-Enables the Quick Insert panel and toolbar access point.
-</details>
-
-<details>
-  <summary><code>Close Proactive Suggestions</code></summary>
-
-Shows a dismiss button in the proactive suggestions bar.
-</details>
-
-<details>
-  <summary><code>Clipboard Custom Character Limit</code></summary>
-
-  Lets you set the maximum number of characters stored for each text clipboard item, with Gboard's stock 20,000-character limit as the default.
-</details>
-
-<details>
-  <summary><code>Access Points menu style</code></summary>
-
-  Lets you switch between the new and legacy Access Points menu styles.
-</details>
-
-<details>
-  <summary><code>Top Toolbar Item Count</code></summary>
-
-  Lets you customize the top toolbar item count.
-</details>
-
-<details>
-  <summary><code>Settings Homepage Override</code></summary>
-
-  Lets you switch between the new and legacy Gboard settings homepage styles.
-</details>
-
-<details>
-  <summary><code>Developer options</code></summary>
-
-  Enable Developer options and the Flag Editor, allowing you to modify flag values.
-</details>
-
-<details>
-  <summary><code>Package Rename</code></summary>
-
-  Rename the package to a configurable name (default <code>dev.jason.com.google.android.inputmethod.latin</code>) and allow a custom app name so it can be installed alongside the official Gboard.
-</details>
-
-### Taiwan-focused Features
-
-Features tailored to Traditional Chinese and Zhuyin input workflows.
-
-<details>
-  <summary><code>Zhuyin Slide Input</code></summary>
-
-  On the Zhuyin keyboard, swipe up or down to enter English letters without switching to another keyboard layout.
-</details>
-
-<details>
-  <summary><code>Zhuyin Quick Traditional/Simplified Toggle</code></summary>
-
-  Swipe up on the Zhuyin <code>ㄥ</code> key to quickly toggle between Traditional and Simplified Chinese.
-</details>
-
-<details>
-  <summary><code>Zhuyin Bottom Row Key Sizes</code></summary>
-
-  Adjusts the seven bottom-row slot sizes on the Zhuyin keyboard, including <code>?123</code>, <code>，</code>, the globe key, space, <code>ㄦ</code>, backspace, and the IME action key.
-</details>
-
-### Japan-focused Features
-
-Features tailored to Japanese input workflows.
-
-<details>
-  <summary><code>Japanese QWERTY Glide</code></summary>
-
-  Enables glide typing of English words on the ABC layout of the Japanese keyboard, with in-progress candidates and an ASCII space on commit. Disabled by default.
-</details>
-
-## Install
-
-Add this repository as a Morphe source:
-
-- [Open in Morphe](https://morphe.software/add-source?github=c-ardinal/Gboard-patches-jp)
-- Or manually add `https://github.com/c-ardinal/Gboard-patches-jp`
-
-## Build
-
-Before running Gradle locally, authenticate to Morphe's GitHub Packages registry with either:
-
-- `gpr.user` and `gpr.key` in `~/.gradle/gradle.properties`
-- `GITHUB_ACTOR` and `GITHUB_TOKEN` as environment variables
-
-Build the Android patch bundle:
+Android 用パッチバンドルのビルド：
 
 ```powershell
 .\gradlew.bat :patches:buildAndroid
 ```
 
-Regenerate patch metadata:
+パッチ情報の再生成：
 
 ```powershell
 .\gradlew.bat generatePatchesList
 ```
 
-Generated outputs:
+生成物：
 
 - `patches/build/libs/*.mpp`
 - `patches-list.json`
 - `patches-bundle.json`
 
-## License
+## ライセンス
 
-Released under the [GNU General Public License v3.0](LICENSE).
+[GNU General Public License v3.0](LICENSE) で公開しています。

@@ -93,63 +93,62 @@ class ChangelogTest(unittest.TestCase):
         self.assertNotIn("\n\n\n", text)
 
 
-class XmlTest(unittest.TestCase):
-    def test_inserts_ja_only_where_missing_and_preserves_rest(self):
-        xml = (
-            '<?xml version="1.0" encoding="utf-8"?>\n<settings-text locales="en zh-Hant ja">\n'
-            '    <string name="a">\n        <translation locale="en">A &amp; b</translation>\n'
-            '        <translation locale="zh-Hant">甲</translation>\n    </string>\n'
-            '    <string name="b" formatted="false">\n        <translation locale="en">B</translation>\n'
-            '        <translation locale="zh-Hant">乙</translation>\n        <translation locale="ja">ビ</translation>\n'
-            '    </string>\n    <plurals name="p">\n        <item quantity="one">\n'
-            '            <translation locale="en">%d x</translation>\n        </item>\n    </plurals>\n</settings-text>\n'
-        )
-        out, keys = resolve.fill_ja_placeholders(xml)
-        self.assertEqual(keys, ["a", "p[one]"])
-        expected = xml.replace(
-            '甲</translation>\n', '甲</translation>\n        <translation locale="ja">A &amp; b</translation>\n'
-        ).replace(
-            '%d x</translation>\n', '%d x</translation>\n            <translation locale="ja">%d x</translation>\n'
-        )
-        self.assertEqual(out, expected)
-        self.assertEqual(resolve.fill_ja_placeholders(out), (out, []))
+def resources(*entries, tail=""):
+    return '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n' + "".join(entries) + tail + "</resources>\n"
 
 
-def settings(locales, *entries):
-    return f'<?xml version="1.0" encoding="utf-8"?>\n<settings-text locales="{locales}">\n' + "".join(entries) + "</settings-text>\n"
+def string(name, text, gap=""):
+    return f'{gap}    <string name="{name}">{text}</string>\n'
 
 
-def entry(name, en, zh, ja=None, gap=""):
-    lines = [f'    <string name="{name}">', f'        <translation locale="en">{en}</translation>',
-             f'        <translation locale="zh-Hant">{zh}</translation>']
-    if ja is not None:
-        lines.append(f'        <translation locale="ja">{ja}</translation>')
-    return gap + "\n".join(lines + ["    </string>"]) + "\n"
+MARKER = "    " + resolve.FORK_MARKER + " Keep them at the end of the file. -->\n"
 
 
 class SettingsMergeTest(unittest.TestCase):
-    BASE = settings("en zh-Hant", entry("a", "A", "甲"), entry("b", "B", "乙"), entry("c", "C", "丙"), entry("d", "D", "丁"))
-    OURS = settings("en zh-Hant ja", entry("a", "A", "甲", "エー"), entry("b", "B", "乙", "ビー"),
-                    entry("f", "F", "戊", "エフ"), entry("c", "C", "丙", "シー"), entry("d", "D", "丁", "ディー", gap="\n"))
+    BASE = resources(string("a", "A"), string("b", "B"), string("c", "C"))
+    OURS = resources(string("a", "A"), string("f", "F"), string("b", "B"), string("c", "C"),
+                     string("x", "X", gap=MARKER), string("y", "Y"))
 
-    def test_upstream_edits_keep_fork_entries_and_unchanged_ja(self):
-        theirs = settings("en zh-Hant", entry("a", "A", "甲"), entry("b", "B2", "乙2"), entry("n", "N", "新"),
-                          entry("d", "D", "丁", gap="\n"))
-        merged = resolve.merge_settings_xml(self.BASE, self.OURS, theirs)
-        expected = settings("en zh-Hant ja", entry("a", "A", "甲", "エー"), entry("b", "B2", "乙2"), entry("f", "F", "戊", "エフ"),
-                            entry("n", "N", "新"), entry("d", "D", "丁", "ディー", gap="\n"))
+    def test_upstream_edits_keep_fork_entries_and_fork_block_stays_last(self):
+        theirs = resources(string("a", "A2"), string("b", "B"), string("c", "C"), string("n", "N"))
+        merged, overridden = resolve.merge_settings_xml(self.BASE, self.OURS, theirs)
+        expected = resources(string("a", "A2"), string("f", "F"), string("b", "B"), string("c", "C"),
+                             string("n", "N"), string("x", "X", gap=MARKER), string("y", "Y"))
         self.assertEqual(merged, expected)
-        self.assertEqual(resolve.fill_ja_placeholders(merged)[1], ["b", "n"])
+        self.assertEqual(overridden, [])
 
-    def test_fork_edit_of_en_is_kept_when_upstream_left_it(self):
+    def test_fork_edit_is_kept_when_upstream_left_it(self):
         ours = self.OURS.replace(">C<", ">C fork<")
-        theirs = settings("en zh-Hant", entry("a", "A", "甲"), entry("b", "B", "乙"), entry("c", "C", "丙"), entry("d", "D", "丁"))
-        self.assertIn(">C fork<", resolve.merge_settings_xml(self.BASE, ours, theirs))
+        merged, _ = resolve.merge_settings_xml(self.BASE, ours, self.BASE)
+        self.assertIn(">C fork<", merged)
 
-    def test_both_sides_editing_an_entry_is_a_conflict(self):
+    def test_both_sides_editing_english_is_a_conflict(self):
         ours = self.OURS.replace(">C<", ">C fork<")
         theirs = self.BASE.replace(">C<", ">C upstream<")
         self.assertIsNone(resolve.merge_settings_xml(self.BASE, ours, theirs))
+
+    def test_both_sides_editing_a_translation_takes_upstream(self):
+        ours = self.OURS.replace(">C<", ">C fork<")
+        theirs = self.BASE.replace(">C<", ">C upstream<")
+        merged, overridden = resolve.merge_settings_xml(self.BASE, ours, theirs, path=resolve.SETTINGS_JA)
+        self.assertIn(">C upstream<", merged)
+        self.assertEqual(overridden, ["c"])
+
+    def test_upstream_deleting_an_entry_drops_it(self):
+        theirs = resources(string("a", "A"), string("c", "C"))
+        merged, _ = resolve.merge_settings_xml(self.BASE, self.OURS, theirs)
+        self.assertNotIn('name="b"', merged)
+
+    def test_missing_translations_lists_untranslated_names(self):
+        en = resources(string("a", "A"), string("b", "B"), "    <plurals name=\"p\">\n        <item quantity=\"other\">%d</item>\n    </plurals>\n")
+        ja = resources(string("a", "エー"))
+        self.assertEqual(resolve.missing_translations(en, ja), ["b", "p"])
+
+    def test_settings_file_pattern(self):
+        self.assertTrue(resolve.SETTINGS_FILE.fullmatch(resolve.SETTINGS_EN))
+        self.assertTrue(resolve.SETTINGS_FILE.fullmatch(resolve.SETTINGS_JA))
+        self.assertTrue(resolve.SETTINGS_FILE.fullmatch(resolve.SETTINGS_DIR + "/values-b+zh+Hant/gboard_settings_strings.xml"))
+        self.assertFalse(resolve.SETTINGS_FILE.fullmatch(resolve.SETTINGS_DIR + "/gboard_settings_text.xml"))
 
 
 class BundleTest(unittest.TestCase):
@@ -170,9 +169,13 @@ class BundleTest(unittest.TestCase):
 
 class PostTextTest(unittest.TestCase):
     def test_posted_texts_contain_no_links_or_mentions(self):
-        body = resolve.pr_body("v2.0.0", "2.0.0-jp.1", ["CHANGELOG.md"], ["gboard_patches_a_title"])
+        body = resolve.pr_body("v2.0.0", "2.0.0-jp.1", ["CHANGELOG.md"], ["gboard_patches_a_title"], ["values-ja: b"])
         notes = resolve.release_notes("v2.0.0", "2.0.0-jp.1")
         self.assertIn("- `gboard_patches_a_title`", body)
+        self.assertIn("- `values-ja: b`", body)
+        self.assertIn("Upstream's README is unchanged", body)
+        changed = resolve.pr_body("v2.0.0", "2.0.0-jp.1", [], [], [], True)
+        self.assertIn(f"`{resolve.UPSTREAM_README}` now mirrors it", changed)
         self.assertIn("`v2.0.0-jp.0`", notes)
         for text in (body, notes):
             self.assertNotRegex(text, r"https?://|www\.|@|#\d")

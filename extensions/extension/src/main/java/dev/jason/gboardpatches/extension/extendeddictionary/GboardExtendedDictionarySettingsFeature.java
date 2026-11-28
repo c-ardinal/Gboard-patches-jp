@@ -323,13 +323,14 @@ public final class GboardExtendedDictionarySettingsFeature
         try {
             return task.run();
         } catch (Throwable failure) {
-            Log.w(TAG, "Dictionary task failed: " + failure.getClass().getName());
+            // Keep the stack: a linkage error here is otherwise impossible to locate.
+            Log.w(TAG, "Dictionary task failed", failure);
             return failureMessage;
         }
     }
 
     String importDocument(Context context, byte[] data) {
-        return importDocument(context, data, ExtendedDictionaryImporter.JobProgress.only(
+        return importDocument(context, data, ExtendedDictionaryImporter.onlyPhase(
                 PhasedEta.Phase.INSERT, (done, total) -> {
                 }), new AtomicBoolean());
     }
@@ -410,7 +411,7 @@ public final class GboardExtendedDictionarySettingsFeature
     }
 
     String removeAll(Context context, ExtendedDictionaryImporter.Progress progress) {
-        return removeAll(context, ExtendedDictionaryImporter.JobProgress.only(
+        return removeAll(context, ExtendedDictionaryImporter.onlyPhase(
                 PhasedEta.Phase.DELETE, progress), false);
     }
 

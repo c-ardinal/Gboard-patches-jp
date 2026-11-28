@@ -309,23 +309,31 @@ public final class GboardExtendedDictionaryLocalizationTest {
                 }
             }
         }
-        String authority = new String(Files.readAllBytes(
-                Path.of("src/main/settings-text/gboard_settings_text.xml")),
-                StandardCharsets.UTF_8);
+        String english = settingsText("values");
+        String traditionalChinese = settingsText("values-b+zh+Hant");
+        String japanese = settingsText("values-ja");
         for (String resourceName : resourceNames) {
-            Matcher block = Pattern.compile("<string name=\"" + Pattern.quote(resourceName)
-                    + "\">(.*?)</string>", Pattern.DOTALL).matcher(authority);
-            assertTrue("Missing settings-text entry: " + resourceName, block.find());
-            Matcher englishText = Pattern.compile(
-                    "<translation locale=\"en\">(.*?)</translation>", Pattern.DOTALL)
-                    .matcher(block.group(1));
-            assertTrue("Missing English translation: " + resourceName, englishText.find());
+            String englishText = settingsEntry(english, resourceName);
+            assertTrue("Missing English translation: " + resourceName, englishText != null);
             assertFalse("Chinese text in English translation: " + resourceName,
-                    HAN.matcher(englishText.group(1)).find());
+                    HAN.matcher(englishText).find());
             assertTrue("Missing Traditional Chinese translation: " + resourceName,
-                    block.group(1).contains("<translation locale=\"zh-Hant\">"));
+                    settingsEntry(traditionalChinese, resourceName) != null);
+            assertTrue("Missing Japanese translation: " + resourceName,
+                    settingsEntry(japanese, resourceName) != null);
         }
         assertTrue("No extended dictionary resources were audited", resourceNames.size() > 20);
+    }
+
+    private static String settingsText(String qualifier) throws Exception {
+        return new String(Files.readAllBytes(Path.of("src/main/settings-text", qualifier,
+                "gboard_settings_strings.xml")), StandardCharsets.UTF_8);
+    }
+
+    private static String settingsEntry(String xml, String resourceName) {
+        Matcher entry = Pattern.compile("<string name=\"" + Pattern.quote(resourceName)
+                + "\"[^>]*>(.*?)</string>", Pattern.DOTALL).matcher(xml);
+        return entry.find() ? entry.group(1) : null;
     }
 
     private static Context localized(Locale locale) {
