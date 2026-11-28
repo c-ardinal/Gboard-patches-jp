@@ -6,7 +6,7 @@
 
 ## 概要
 
-Gboard Patches JP は、[jasonwu1994/Gboard-patches](https://github.com/jasonwu1994/Gboard-patches) のフォークです。上流の全パッチに加え、日本語入力向けの独自機能（日本語 QWERTY のグライド入力、拡張辞書）を搭載した Morphe ソースとして公開しています。
+Gboard Patches JP は、[jasonwu1994/Gboard-patches](https://github.com/jasonwu1994/Gboard-patches) のフォークです。上流の全パッチに加え、日本語入力向けの独自機能を搭載しています。
 
 Patches 設定画面は日本語を含む 13 言語に対応しており、日本語訳は上流の翻訳を採用しています。
 
