@@ -9,7 +9,6 @@ import java.util.Locale;
 public final class GboardSettingsText {
     private static final String LANGUAGE_ENGLISH = "en";
     private static final String LANGUAGE_TRADITIONAL_CHINESE = "zh-Hant";
-    private static final String LANGUAGE_JAPANESE = "ja";
 
     private GboardSettingsText() {
     }
@@ -46,6 +45,21 @@ public final class GboardSettingsText {
     /** The packaged, unformatted text of {@code resId} in {@code languageTag}; null if none. */
     public static String getInLanguage(int resId, String languageTag) {
         return GboardSettingsTextCatalog.template(resId, normalizeLanguageTag(languageTag));
+    }
+
+    /**
+     * The packaged, unformatted text of {@code resId} in the settings language for
+     * {@code context}, or {@code fallback} when none is packaged. It never reads
+     * {@code context}'s resources, so it is safe with a host context whose resource table does
+     * not hold these ids, such as labels drawn inside the keyboard.
+     */
+    public static String packagedOrDefault(Context context, int resId, String fallback) {
+        try {
+            String text = GboardSettingsTextCatalog.template(resId, resolveLanguageTag(context));
+            return text == null || text.isEmpty() ? fallback : text;
+        } catch (Throwable ignored) {
+            return fallback;
+        }
     }
 
     static String resolveStableTextForTesting(int resId, String languageTag, Object... args) {
@@ -85,11 +99,14 @@ public final class GboardSettingsText {
         if (args == null || args.length == 0) {
             return template;
         }
-        Locale formatLocale = LANGUAGE_TRADITIONAL_CHINESE.equals(languageTag)
-                ? Locale.TRADITIONAL_CHINESE
-                : LANGUAGE_JAPANESE.equals(languageTag)
-                        ? Locale.JAPAN
-                        : Locale.US;
+        Locale formatLocale;
+        if (LANGUAGE_ENGLISH.equals(languageTag) || languageTag == null || languageTag.isEmpty()) {
+            formatLocale = Locale.US;
+        } else if (LANGUAGE_TRADITIONAL_CHINESE.equals(languageTag)) {
+            formatLocale = Locale.TRADITIONAL_CHINESE;
+        } else {
+            formatLocale = Locale.forLanguageTag(languageTag);
+        }
         return String.format(formatLocale, template, args);
     }
 
@@ -105,8 +122,7 @@ public final class GboardSettingsText {
                 // Static feature initialization can request stable text without a usable context.
             }
         }
-        return GboardSettingsLocaleManager.resolveEffectiveLanguageTag(
-                GboardSettingsLocaleManager.LANGUAGE_SYSTEM, locale);
+        return GboardSettingsLocaleManager.matchSupportedLocale(locale);
     }
 
     private static Locale extractLocale(Context context) {
@@ -136,11 +152,7 @@ public final class GboardSettingsText {
     }
 
     private static String normalizeLanguageTag(String languageTag) {
-        if (languageTag == null || languageTag.isBlank()) {
-            return LANGUAGE_ENGLISH;
-        }
-        return GboardSettingsLocaleManager.resolveEffectiveLanguageTag(
-                languageTag, Locale.forLanguageTag(languageTag));
+        return GboardSettingsLocaleManager.matchSupportedLanguageTag(languageTag);
     }
 
     private static Context requireContext(Context context) {

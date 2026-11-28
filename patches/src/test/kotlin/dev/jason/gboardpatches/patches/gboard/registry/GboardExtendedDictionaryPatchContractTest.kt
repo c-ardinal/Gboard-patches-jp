@@ -329,12 +329,19 @@ class GboardExtendedDictionaryPatchContractTest {
         val backup = registry.indexOf("new GboardBackupRestoreSettingsFeature(context)")
         assertTrue(homepage >= 0 && homepage < dictionary && dictionary < backup)
 
-        val text = Files.readString(
-            repositoryRoot.resolve(SETTINGS_TEXT_PATH),
-            StandardCharsets.UTF_8,
-        )
-        assertTrue(text.contains("<translation locale=\"en\">Extended Dictionary</translation>"))
-        assertTrue(text.contains("<translation locale=\"zh-Hant\">擴充字典</translation>"))
+        mapOf(
+            "values" to "Extended Dictionary",
+            "values-b+zh+Hant" to "擴充字典",
+            "values-ja" to "拡張辞書",
+        ).forEach { (qualifier, title) ->
+            val text = Files.readString(
+                repositoryRoot.resolve("$SETTINGS_TEXT_DIR/$qualifier/gboard_settings_strings.xml"),
+                StandardCharsets.UTF_8,
+            )
+            assertTrue(
+                text.contains("<string name=\"gboard_patches_extended_dictionary_title\">$title</string>"),
+            )
+        }
     }
 
     private fun repositoryRoot(): Path {
@@ -354,7 +361,6 @@ class GboardExtendedDictionaryPatchContractTest {
         const val MORE_GROUP_PATH =
             "extensions/extension/src/main/java/dev/jason/gboardpatches/extension/settings/" +
                 "GboardMoreSettingsGroupFeature.java"
-        const val SETTINGS_TEXT_PATH =
-            "extensions/extension/src/main/settings-text/gboard_settings_text.xml"
+        const val SETTINGS_TEXT_DIR = "extensions/extension/src/main/settings-text"
     }
 }

@@ -228,7 +228,7 @@ public final class GboardSettingsGroupingTest {
         List<?> aboutRows = reflectList(rootSections.get(2), "getItems");
         Assert.assertEquals(3, aboutRows.size());
         Assert.assertEquals("Author", reflectCharSequence(aboutRows.get(0), "getTitle"));
-        Assert.assertEquals("Japanese localization", reflectCharSequence(aboutRows.get(1), "getTitle"));
+        Assert.assertEquals("Japanese fork", reflectCharSequence(aboutRows.get(1), "getTitle"));
         Assert.assertEquals("Patch Version", reflectCharSequence(aboutRows.get(2), "getTitle"));
         GboardPatchesSettingsContract.CommandRow maintainerRow =
                 (GboardPatchesSettingsContract.CommandRow) aboutRows.get(1);

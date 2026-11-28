@@ -17,8 +17,8 @@ import dev.jason.gboardpatches.extension.R;
 public final class GboardSettingsTextTest {
     @Test
     public void nullContextRemainsSafeForStaticFeatureInitialization() {
-        Assert.assertEquals("Patch settings", GboardSettingsText.get(
-                null, R.string.gboard_patches_header_title));
+        Assert.assertEquals("Search settings", GboardSettingsText.get(
+                null, R.string.gboard_patches_search_title));
     }
 
     @Test
@@ -46,34 +46,20 @@ public final class GboardSettingsTextTest {
                 R.string.gboard_patches_custom_theme_source_chooser_title));
         Assert.assertEquals("選擇要匯入的主題", GboardSettingsText.get(context,
                 R.string.gboard_patches_custom_theme_choose_import));
-
-        GboardPatchesSettings.preferences(context).edit()
-                .putString(GboardPatchesSettings.PREF_KEY_SETTINGS_UI_LANGUAGE,
-                        GboardSettingsLocaleManager.LANGUAGE_JAPANESE)
-                .commit();
-        Assert.assertEquals("パッチの設定", GboardSettingsText.get(context,
-                R.string.gboard_patches_header_title));
-        Assert.assertEquals("日本語", GboardSettingsText.get(context,
-                R.string.gboard_patches_language_japanese_label));
     }
 
     @Test
     public void authoritativeCopyResolvesBothLocalesWithoutCallerFallback() {
         Assert.assertEquals(
-                "Patch settings",
+                "Search settings",
                 GboardSettingsText.resolveStableTextForTesting(
-                        R.string.gboard_patches_header_title,
+                        R.string.gboard_patches_search_title,
                         "en"));
         Assert.assertEquals(
-                "Patch 設定",
+                "搜尋設定",
                 GboardSettingsText.resolveStableTextForTesting(
-                        R.string.gboard_patches_header_title,
+                        R.string.gboard_patches_search_title,
                         "zh-Hant"));
-        Assert.assertEquals(
-                "パッチの設定",
-                GboardSettingsText.resolveStableTextForTesting(
-                        R.string.gboard_patches_header_title,
-                        "ja"));
     }
 
     @Test
@@ -88,19 +74,8 @@ public final class GboardSettingsTextTest {
                 "System default (English)",
                 GboardSettingsText.resolveStableTextForTesting(
                         R.string.gboard_patches_language_system_value,
-                        "fr-FR",
+                        "th-TH",
                         "English"));
-        Assert.assertEquals(
-                "システムのデフォルト（日本語）",
-                GboardSettingsText.resolveStableTextForTesting(
-                        R.string.gboard_patches_language_system_value,
-                        "ja-JP",
-                        "日本語"));
-        Assert.assertEquals(
-                "Patch settings",
-                GboardSettingsText.resolveStableTextForTesting(
-                        R.string.gboard_patches_header_title,
-                        "zh-CN"));
     }
 
     @Test
@@ -138,22 +113,10 @@ public final class GboardSettingsTextTest {
                         R.plurals.gboard_patches_minutes,
                         "zh-Hant",
                         2));
-        Assert.assertEquals(
-                "1 分",
-                GboardSettingsText.resolveStableQuantityForTesting(
-                        R.plurals.gboard_patches_minutes,
-                        "ja",
-                        1));
-        Assert.assertEquals(
-                "2 分",
-                GboardSettingsText.resolveStableQuantityForTesting(
-                        R.plurals.gboard_patches_minutes,
-                        "ja",
-                        2));
     }
 
     @Test
-    public void everyGeneratedSettingsStringHasEveryLocaleCoverage()
+    public void everyGeneratedSettingsStringHasEnglishAndTraditionalChineseCoverage()
             throws Exception {
         for (Field field : R.string.class.getDeclaredFields()) {
             if (!Modifier.isStatic(field.getModifiers()) || field.getType() != int.class) {
@@ -166,9 +129,6 @@ public final class GboardSettingsTextTest {
             Assert.assertNotNull(
                     field.getName() + " missing zh-Hant settings text",
                     GboardSettingsText.resolveStableTextForTesting(resId, "zh-Hant"));
-            Assert.assertNotNull(
-                    field.getName() + " missing ja settings text",
-                    GboardSettingsText.resolveStableTextForTesting(resId, "ja"));
         }
     }
 }
