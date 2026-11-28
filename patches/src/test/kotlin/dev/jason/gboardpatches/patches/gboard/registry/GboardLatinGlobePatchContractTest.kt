@@ -71,7 +71,7 @@ class GboardLatinGlobePatchContractTest {
 
     @Test
     fun readmeListsLatinGlobeWithThePublicEnglishDescription() {
-        val readme = readSource("README.md")
+        val readme = readSource("docs/upstream-README.md")
             .substringAfter("## Included Patches")
             .substringBefore("## Install")
 

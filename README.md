@@ -1,360 +1,361 @@
-<h1 align="center">Gboard Patches</h1>
+<h1 align="center">Gboard Patches JP</h1>
 
 <p align="center">
-  Morphe patches for Gboard with a mix of global improvements and Taiwan-focused enhancements.
+  全世界向けの機能改善と日本語入力向けの独自機能を搭載した、Gboard 用 Morphe パッチ集
 </p>
 
-## Overview
+## 概要
 
-Gboard Patches is a public Morphe source for a curated set of Gboard enhancements, including both global usability improvements and Taiwan-focused features for local input habits and day-to-day use. The Patches settings UI is available in 13 languages, including Japanese, using upstream's translations. This repository is a fork of [jasonwu1994/Gboard-patches](https://github.com/jasonwu1994/Gboard-patches) that adds Japan-focused features on top of the upstream patches.
+Gboard Patches JP は、[jasonwu1994/Gboard-patches](https://github.com/jasonwu1994/Gboard-patches) のフォークです。上流の全パッチに加え、日本語入力向けの独自機能（日本語 QWERTY のグライド入力、拡張辞書）を搭載した Morphe ソースとして公開しています。
 
-## Included Patches
+Patches 設定画面は日本語を含む 13 言語に対応しており、日本語訳は上流の翻訳を採用しています。上流の英語版 README は [docs/upstream-README.md](docs/upstream-README.md) に収録しています。
 
-### Project-Built Features
+## 収録パッチ
 
-Features designed and built by this project rather than simply unlocking an existing Gboard flag.
+各項目の名称は、Morphe 上で表示されるパッチ名です。
+
+### 独自実装の機能
+
+Gboard 既存のフラグ解放ではなく、本プロジェクト（上流を含む）で設計・実装した機能です。
 
 <details>
   <summary><code>Dictionaries &amp; Predictions</code></summary>
 
-  Choose resource versions for dictionaries, predictions, and input correction.
+  辞書、予測変換、入力補正の各リソースのバージョンを選択します。
 </details>
 
 <details>
   <summary><code>Clipboard Enhancements</code></summary>
 
-  Lets you enhance clipboard retention time, item count limits, preview lines, countdown and creation-time labels, order index, grid columns, and optionally render only the first 1,000 characters on each clipboard card.
+  クリップボードの保持期間、保存件数の上限、プレビュー行数、残り時間・作成日時の表示、番号表示、グリッド列数を拡張します。各カードの描画を先頭 1,000 文字に限定する設定にも対応します。
 </details>
 
 <details>
   <summary><code>Web Clipboard</code></summary>
 
-  Hosts a phone-powered Web Clipboard portal that lets desktop browsers sync with Gboard over the same LAN, with a pairing code gate and an optional Quick Settings Tile.
+  スマートフォン上で Web Clipboard ポータルを起動し、同一 LAN 内のデスクトップブラウザと Gboard 間でクリップボードを同期します。ペアリングコードによる認証と、クイック設定タイルにも対応します。
 
-  Preview:
+  プレビュー：
 
-  <img alt="Web Clipboard pairing gate" src="assets/features/web-clipboard/01-pairing-gate.png" width="720">
+  <img alt="Web Clipboard のペアリング画面" src="assets/features/web-clipboard/01-pairing-gate.png" width="720">
 
-  <img alt="Web Clipboard conversation view" src="assets/features/web-clipboard/02-conversation-view.png" width="720">
+  <img alt="Web Clipboard の会話表示画面" src="assets/features/web-clipboard/02-conversation-view.png" width="720">
 
 </details>
 
 <details>
   <summary><code>Floating Web Search</code></summary>
 
-  Open a floating web page directly from Gboard to quickly search for the information you need.
+  Gboard からフローティング表示の Web ページを直接起動し、必要な情報を即座に検索します。
 </details>
 
 <details>
   <summary><code>Custom Theme</code></summary>
 
-Import custom ZIP themes and beautiful themes from the official Rboard repository.
+  独自の ZIP テーマや、公式 Rboard リポジトリのテーマを導入します。
 </details>
 
 <details>
   <summary><code>Frosted Glass</code></summary>
 
-  Adds live background blur and custom-theme transparency to the keyboard. Available on Android 12+ devices that support cross-window blur, with custom themes such as Animal Black.
+  キーボード背景のリアルタイムぼかし効果と、カスタムテーマの透過表示を追加します。Android 12 以降かつウィンドウ間ぼかし対応端末で、Animal Black などのカスタムテーマと併用可能です。
 </details>
 
 <details>
   <summary><code>FTP Server</code></summary>
 
-  Hosts an FTP server on your phone so desktop FTP clients can browse, upload, download, and resume file transfers over the same LAN. It supports anonymous or password-protected access, a configurable control and passive port range, read-only mode, <code>/sdcard</code> or a user-selected folder as the root, live transfer progress, retained partial uploads, and an optional Quick Settings Tile.
+  スマートフォン上で FTP サーバーを起動し、同一 LAN 内のデスクトップ FTP クライアントからファイルの閲覧、アップロード、ダウンロード、転送再開を実行します。匿名接続とパスワード認証、制御ポートとパッシブポート範囲の設定、読み取り専用モード、ルートフォルダー（<code>/sdcard</code> または任意のフォルダー）の指定、転送進捗のリアルタイム表示、中断済みアップロードの保持、クイック設定タイルに対応します。
 </details>
 
 <details>
   <summary><code>Long-Press Editing Shortcuts</code></summary>
 
-  Add Select all, Undo, Copy, Cut, Paste, and Redo long-press shortcuts to English QWERTY and Zhuyin, with an optional globe-key drag gesture that follows the same physical key positions across supported alphabet layouts.
+  英語 QWERTY と注音キーボードに、全選択、元に戻す、コピー、切り取り、貼り付け、やり直しの長押しショートカットを追加します。対応する英字レイアウト間で同一の物理キー位置に追従する、地球儀キーのドラッグ操作にも対応します。
 </details>
 
 <details>
   <summary><code>Toolbar Editing Buttons</code></summary>
 
-  Add editing and cursor buttons such as Select All, Copy, Cut, Paste, Forward Delete,
-  Home/End, Tab, and arrows to the menu. Drag them to the top toolbar and use them with
-  different keyboard languages in supported editors. Button labels follow the Patches
-  settings language.
+  全選択、コピー、切り取り、貼り付け、前方削除、行頭／行末、Tab、方向キーなどの編集・カーソル操作ボタンをメニューへ追加します。上部ツールバーへドラッグで配置し、対応エディター上で各キーボード言語と併用可能です。ボタン表示名は Patches 設定画面の言語設定に追従します。
 </details>
 
 <details>
   <summary><code>Swipeable Custom Top Row</code></summary>
 
-  Lets you swipe the keyboard top row horizontally to open customizable text and JavaScript slots.
+  キーボード最上段の横スワイプで、カスタムテキストと JavaScript のスロットを表示します。
 </details>
 
 <details>
   <summary><code>Incognito Mode Toggle</code></summary>
 
-  Add an Incognito toggle to the Access Point toolbar and configure clipboard and voice typing availability while Incognito mode is active.
+  アクセスポイントのツールバーへシークレットモードの切替ボタンを追加し、シークレットモード中のクリップボードと音声入力の利用可否を設定します。
 </details>
 
 <details>
   <summary><code>Custom Symbols</code></summary>
 
-  Adds a dedicated symbols tab and a quick access entry from the comma long-press popup.
+  専用の記号タブと、読点キー長押しポップアップからの即時起動項目を追加します。
 </details>
 
 <details>
   <summary><code>Simple Calculator</code></summary>
 
-  Adds an optional inline calculator for arithmetic expressions typed in any text field. The result appears in Gboard's suggestion row; tap it to replace the expression, or long-press it to copy the result.
+  任意のテキスト欄へ入力した四則演算式の計算結果を、Gboard の候補バーへ表示する計算機能を追加します（任意設定）。タップで式を計算結果へ置換し、長押しで計算結果をコピーします。
 </details>
 
 <details>
   <summary><code>Swipe Down to Dismiss Keyboard</code></summary>
 
-  Swipe down from the suggestions or toolbar to close the keyboard.
+  候補バーまたはツールバーの下方向スワイプでキーボードを非表示にします。
 </details>
 
 <details>
   <summary><code>Shift + Backspace Forward Delete</code></summary>
 
-  Hold Shift and press Backspace to delete the character after the cursor, like the Delete key on a computer keyboard.
+  Shift キーの押下中に Backspace キーを押すと、パソコンの Delete キーと同様に、カーソル直後の文字を削除します。
 </details>
 
 <details>
   <summary><code>G Logo on Spacebar</code></summary>
 
-  Show a built-in icon or your own PNG, WebP, or JPEG on the spacebar. Keep its original colors or choose a single color, adjust its size, and include imported images in settings backups.
+  スペースキー上に内蔵アイコン、または任意の PNG・WebP・JPEG 画像を表示します。元の配色の維持または単色化、表示サイズの調整、設定バックアップへの画像の同梱に対応します。
 </details>
 
 <details>
   <summary><code>Rounded Keyboard Panel</code></summary>
 
-  Customize which corners of the keyboard panel are rounded, and set the top and bottom radii separately.
+  キーボードパネルの角丸対象の角を選択し、上部と下部の半径を個別に設定します。
 </details>
 
 <details>
   <summary><code>Latin Globe Key Ignore Interval</code></summary>
 
-  Add an independent English globe key ignore interval override for post-typing language-switch delay.
+  文字入力直後の言語切替遅延について、英語キーボード専用の地球儀キー無視時間を個別に設定します。
 </details>
 
 <details>
   <summary><code>Emojis, stickers & GIFs Tab Order</code></summary>
 
-Customize the bottom tab order in Gboard's Emojis, stickers & GIFs panel with drag-and-drop reordering.
+  Gboard の絵文字・ステッカー・GIF パネル下部のタブ順序を、ドラッグ操作で並べ替えます。
 </details>
 
 <details>
   <summary><code>Backup &amp; Restore</code></summary>
 
-  Exports all Gboard Patches settings to a portable JSON backup and restores only the modules you select. Before restoring, an overview lists every module that changes, and each module page shows its added, changed, and removed keys with a key filter; the result page reports each module and key.
+  Gboard Patches の全設定を JSON 形式でバックアップし、選択したモジュールのみを復元します。復元前に変更対象の全モジュールを一覧表示し、各モジュール画面ではキーの追加・変更・削除をフィルター付きで確認可能です。復元後はモジュール単位・キー単位で結果を表示します。
 
-  Also backs up Gboard's own personal data to a ZIP file through Gboard's built-in backup providers: learned words (including Chinese and Japanese), personal dictionary, blocked suggestions, emoji, sticker and GIF history, saved expression images, custom themes, pinned clipboard items, and Gboard settings. Import shows what the file contains, asks for confirmation, and reports each item. The clipboard includes pinned items only, and restored settings may make Gboard ask for contacts access again.
+  Gboard 内蔵のバックアップ機構を利用し、Gboard 自体の個人データも ZIP ファイルへバックアップします。対象は学習済みの単語（中国語・日本語を含む）、単語リスト、ブロック済みの候補、絵文字・ステッカー・GIF の履歴、保存済みの表現画像、カスタムテーマ、固定済みのクリップボード項目、Gboard の設定です。インポート時はファイルの内容を表示し、確認後に各項目の結果を表示します。クリップボードは固定済み項目のみが対象です。設定の復元後、Gboard が連絡先へのアクセス許可を再要求する場合があります。
 
-  It also exports, compares, and restores Gboard's raw PB/XML flag-store files.
+  Gboard の PB/XML 形式フラグストアファイルのエクスポート、比較、復元にも対応します。
 </details>
 
 <details>
   <summary><code>Extended Dictionary</code></summary>
 
-  Bulk imports word lists in Gboard's own word-list format (text or zip) into the personal dictionary. Imported words are kept in their own "(Extended)" sections of the word list so your own entries stay untouched, Japanese entries get a part of speech so Mozc uses them, and removal deletes only what was imported. It also raises Gboard's Mozc user-dictionary import cap from 200,000 to 1,000,000 entries. Ready-made Japanese word lists (SudachiDict-derived and Wikidata-derived) are published at <a href="https://github.com/c-ardinal/gboard-extended-dictionary">c-ardinal/gboard-extended-dictionary</a>.
+  Gboard 標準の単語リスト形式（テキストまたは ZIP）のファイルを、単語リストへ一括インポートします。インポートした単語は単語リスト内の専用区画「（拡張）」へ格納するため、利用者自身の登録単語には影響しません。日本語の単語には品詞を付与して Mozc での利用に対応し、削除時はインポート済みの単語のみを削除します。Gboard の Mozc ユーザー辞書のインポート上限も 200,000 件から 1,000,000 件へ拡大します。日本語用の単語リスト（SudachiDict 由来、Wikidata 由来）は <a href="https://github.com/c-ardinal/gboard-extended-dictionary">c-ardinal/gboard-extended-dictionary</a> で公開しています。
 </details>
 
 
-### Gboard Feature Unlocks
+### Gboard 既存機能の解放
 
-Features already present in Gboard that are exposed by enabling hidden settings, rollout gates, or built-in behavior.
+Gboard に内蔵済みの機能を、非表示設定、段階的展開の制限、内部動作の有効化によって解放します。
 
 <details>
   <summary><code>Keypress Vibration Intensity Control</code></summary>
 
-  Control keypress vibration intensity instead of duration.
+  キー押下時の振動について、持続時間ではなく強度を調整します。
 </details>
 
 <details>
   <summary><code>AI Writing Tools</code></summary>
 
-  Enables the <code>Text correction &gt; Writing tools</code> setting with support for all languages.
+  <code>テキストの修正 &gt; 文章作成ツール</code>設定を全言語対応の状態で有効化します。
 </details>
 
 <details>
   <summary><code>Advanced Voice Typing</code></summary>
 
-  Enable Advanced Voice Typing with automatic punctuation, and separately enable automatic punctuation for Traditional Chinese voice typing, which does not support Advanced Voice Typing.
+  自動句読点付きの高度な音声入力を有効化します。高度な音声入力に非対応の繁体字中国語の音声入力についても、自動句読点を個別に有効化します。
 </details>
 
 <details>
   <summary><code>Enable OCR / Scan Text</code></summary>
 
-  Enable the OCR / Scan Text feature with Latin, Chinese, Japanese, Korean, and Devanagari recognition backends.
+  ラテン文字、中国語、日本語、韓国語、デーヴァナーガリー文字の認識エンジンを搭載した OCR（テキストのスキャン）機能を有効化します。
 </details>
 
 <details>
   <summary><code>English QWERTY Up-Flick Uppercase</code></summary>
 
-  Flick up on the English QWERTY keyboard to toggle uppercase and lowercase.
+  英語 QWERTY キーボードの上フリックで、大文字と小文字を切り替えます。
 </details>
 
 <details>
   <summary><code>Enable Inline Autofill Suggestions</code></summary>
 
-  Enables inline autofill suggestions in supported contexts.
+  対応箇所でのインライン自動入力候補を有効化します。
 </details>
 
 <details>
   <summary><code>Grammar Checker</code></summary>
 
-  Enables the <code>Text correction &gt; Grammar check</code> setting and its related rollout gate.
+  <code>テキストの修正 &gt; 文法チェック</code>設定と、関連する段階的展開の制限を有効化します。
 </details>
 
 <details>
   <summary><code>Inline Suggestions</code></summary>
 
-  Enables the <code>Text correction &gt; Smart Compose</code> setting and its related rollout gate.
+  <code>テキストの修正 &gt; スマート作成</code>設定と、関連する段階的展開の制限を有効化します。
 </details>
 
 <details>
   <summary><code>Key Shape Selection</code></summary>
 
-  Enables the <code>Key shape</code> option inside theme details without forcing rounded keys by default.
+  角丸キーを既定値として強制せず、テーマ詳細内の<code>キーの形状</code>設定を有効化します。
 </details>
 
 <details>
   <summary><code>Use Bluetooth Microphone</code></summary>
 
-  Enables the <code>Voice typing &gt; Use Bluetooth microphone</code> setting and its related rollout gate.
+  <code>音声入力 &gt; Bluetooth マイクを使用</code>設定と、関連する段階的展開の制限を有効化します。
 </details>
 
 <details>
   <summary><code>Change emoji size</code></summary>
 
-  Enables Gboard's emoji size setting.
+  Gboard の絵文字サイズ設定を有効化します。
 </details>
 
 <details>
   <summary><code>Enable cursor trackpad mode</code></summary>
 
-  Enables the long-press-spacebar trackpad, cursor lock mode, and the required scrub-move preference.
+  スペースキー長押しのトラックパッド操作、カーソル固定モード、必須となるスクラブ移動設定を有効化します。
 </details>
 
 <details>
   <summary><code>Enable split keyboard</code></summary>
 
-  Enables Gboard's split keyboard layout.
+  Gboard の分割キーボードレイアウトを有効化します。
 </details>
 
 <details>
   <summary><code>Enable accessibility layout</code></summary>
 
-  Enables accessibility layout.
+  ユーザー補助レイアウトを有効化します。
 </details>
 
 <details>
   <summary><code>Quick Insert</code></summary>
 
-Enables the Quick Insert panel and toolbar access point.
+  クイック挿入パネルと、ツールバーのアクセスポイントを有効化します。
 </details>
 
 <details>
   <summary><code>Close Proactive Suggestions</code></summary>
 
-Shows a dismiss button in the proactive suggestions bar.
+  先回り候補バーへ非表示ボタンを追加します。
 </details>
 
 <details>
   <summary><code>Clipboard Custom Character Limit</code></summary>
 
-  Lets you set the maximum number of characters stored for each text clipboard item, with Gboard's stock 20,000-character limit as the default.
+  テキストのクリップボード項目ごとの最大保存文字数を設定します。既定値は Gboard 標準の 20,000 文字です。
 </details>
 
 <details>
   <summary><code>Access Points menu style</code></summary>
 
-  Lets you switch between the new and legacy Access Points menu styles.
+  アクセスポイントメニューの新旧スタイルを切り替えます。
 </details>
 
 <details>
   <summary><code>Top Toolbar Item Count</code></summary>
 
-  Lets you customize the top toolbar item count.
+  上部ツールバーの項目数を変更します。
 </details>
 
 <details>
   <summary><code>Settings Homepage Override</code></summary>
 
-  Lets you switch between the new and legacy Gboard settings homepage styles.
+  Gboard 設定画面の新旧スタイルを切り替えます。
 </details>
 
 <details>
   <summary><code>Developer options</code></summary>
 
-  Enable Developer options and the Flag Editor, allowing you to modify flag values.
+  開発者向けオプションと Flag エディターを有効化し、フラグ値の変更を可能にします。
 </details>
 
 <details>
   <summary><code>Package Rename</code></summary>
 
-  Rename the package to a configurable name (default <code>dev.jason.com.google.android.inputmethod.latin</code>) and allow a custom app name so it can be installed alongside the official Gboard.
+  パッケージ名を任意の名称（既定値は <code>dev.jason.com.google.android.inputmethod.latin</code>）へ変更し、アプリ名の変更にも対応します。公式 Gboard との同時インストールが可能です。
 </details>
 
-### Taiwan-focused Features
+### 台湾向けの機能
 
-Features tailored to Traditional Chinese and Zhuyin input workflows.
+繁体字中国語と注音入力向けの機能です。
 
 <details>
   <summary><code>Zhuyin Slide Input</code></summary>
 
-  On the Zhuyin keyboard, swipe up or down to enter English letters without switching to another keyboard layout.
+  注音キーボード上の上下スワイプで、キーボードレイアウトを切り替えずに英字を入力します。
 </details>
 
 <details>
   <summary><code>Zhuyin Quick Traditional/Simplified Toggle</code></summary>
 
-  Swipe up on the Zhuyin <code>ㄥ</code> key to quickly toggle between Traditional and Simplified Chinese.
+  注音キーボードの <code>ㄥ</code> キーの上スワイプで、繁体字と簡体字を即座に切り替えます。
 </details>
 
 <details>
   <summary><code>Zhuyin Bottom Row Key Sizes</code></summary>
 
-  Adjusts the seven bottom-row slot sizes on the Zhuyin keyboard, including <code>?123</code>, <code>，</code>, the globe key, space, <code>ㄦ</code>, backspace, and the IME action key.
+  注音キーボード最下段の 7 個のキー（<code>?123</code>、<code>，</code>、地球儀キー、スペース、<code>ㄦ</code>、Backspace、IME 操作キー）のサイズを調整します。
 </details>
 
-### Japan-focused Features
+### 日本向けの機能
 
-Features tailored to Japanese input workflows.
+日本語入力向けの独自機能です。
 
 <details>
   <summary><code>Japanese QWERTY Glide</code></summary>
 
-  Enables glide typing of English words on the ABC layout of the Japanese keyboard, with in-progress candidates and an ASCII space on commit. Disabled by default.
+  日本語キーボードの ABC レイアウト上で、英単語のグライド入力に対応します。入力途中の候補表示と、確定時の半角スペース挿入にも対応します。既定値は無効です。
 </details>
 
-## Install
+## 導入方法
 
-Add this repository as a Morphe source:
+本リポジトリを Morphe のソースとして追加します。
 
-- [Open in Morphe](https://morphe.software/add-source?github=c-ardinal/Gboard-patches-jp)
-- Or manually add `https://github.com/c-ardinal/Gboard-patches-jp`
+- [Morphe で開く](https://morphe.software/add-source?github=c-ardinal/Gboard-patches-jp)
+- 手動追加の場合は `https://github.com/c-ardinal/Gboard-patches-jp` を入力
 
-## Build
+## ビルド方法
 
-Before running Gradle locally, authenticate to Morphe's GitHub Packages registry with either:
+ローカル環境での Gradle 実行前に、以下のいずれかの方法で Morphe の GitHub Packages レジストリへの認証情報を設定します。
 
-- `gpr.user` and `gpr.key` in `~/.gradle/gradle.properties`
-- `GITHUB_ACTOR` and `GITHUB_TOKEN` as environment variables
+- `~/.gradle/gradle.properties` へ `gpr.user` と `gpr.key` を記述
+- 環境変数 `GITHUB_ACTOR` と `GITHUB_TOKEN` を設定
 
-Build the Android patch bundle:
+Android 用パッチバンドルのビルド：
 
 ```powershell
 .\gradlew.bat :patches:buildAndroid
 ```
 
-Regenerate patch metadata:
+パッチ情報の再生成：
 
 ```powershell
 .\gradlew.bat generatePatchesList
 ```
 
-Generated outputs:
+生成物：
 
 - `patches/build/libs/*.mpp`
 - `patches-list.json`
 - `patches-bundle.json`
 
-## License
+## ライセンス
 
-Released under the [GNU General Public License v3.0](LICENSE).
+[GNU General Public License v3.0](LICENSE) で公開しています。

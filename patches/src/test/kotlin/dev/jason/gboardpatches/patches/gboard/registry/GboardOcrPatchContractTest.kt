@@ -87,6 +87,6 @@ class GboardOcrPatchContractTest {
             "extensions/extension/src/main/settings-text/values/gboard_settings_strings.xml",
             "extensions/extension/src/main/settings-text/values-b+zh+Hant/gboard_settings_strings.xml",
         )
-        const val README = "README.md"
+        const val README = "docs/upstream-README.md"
     }
 }

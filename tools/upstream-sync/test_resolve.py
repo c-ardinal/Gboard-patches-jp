@@ -173,6 +173,9 @@ class PostTextTest(unittest.TestCase):
         notes = resolve.release_notes("v2.0.0", "2.0.0-jp.1")
         self.assertIn("- `gboard_patches_a_title`", body)
         self.assertIn("- `values-ja: b`", body)
+        self.assertIn("Upstream's README is unchanged", body)
+        changed = resolve.pr_body("v2.0.0", "2.0.0-jp.1", [], [], [], True)
+        self.assertIn(f"`{resolve.UPSTREAM_README}` now mirrors it", changed)
         self.assertIn("`v2.0.0-jp.0`", notes)
         for text in (body, notes):
             self.assertNotRegex(text, r"https?://|www\.|@|#\d")

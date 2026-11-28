@@ -63,7 +63,7 @@ class GboardBluetoothMicrophonePatchContractTest {
     @Test
     fun readmeUsesConciseBluetoothMicrophoneDescription() {
         val readme = Files.readString(
-            repositoryRoot().resolve("README.md"),
+            repositoryRoot().resolve("docs/upstream-README.md"),
             StandardCharsets.UTF_8,
         )
 

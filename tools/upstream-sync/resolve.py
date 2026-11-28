@@ -15,10 +15,12 @@ SETTINGS_DIR = "extensions/extension/src/main/settings-text"
 SETTINGS_FILE = re.compile(re.escape(SETTINGS_DIR) + r"/values(-[^/]+)?/gboard_settings_strings\.xml")
 SETTINGS_EN = f"{SETTINGS_DIR}/values/gboard_settings_strings.xml"
 SETTINGS_JA = f"{SETTINGS_DIR}/values-ja/gboard_settings_strings.xml"
+# README.md is the fork's Japanese README; upstream's English README is mirrored to UPSTREAM_README.
+UPSTREAM_README = "docs/upstream-README.md"
 SEARCH_INDEX = "extensions/extension/src/main/java/dev/jason/gboardpatches/extension/settings/search/GboardSettingsSearchIndexData.java"
 # SEARCH_INDEX is generated; upstream's copy is taken and the workflow regenerates it with the fork's settings.
 ALLOWED_CONFLICTS = {"CHANGELOG.md", "gradle.properties", "patches-bundle.json", "patches-list.json", CATALOG_SHA,
-                     SEARCH_INDEX}
+                     SEARCH_INDEX, "README.md", UPSTREAM_README}
 EN_FEATURES = "### ✨ New Features"
 ZH_FEATURES = "### ✨ 新功能"
 ZH_FIXES = "### 🐛 修復"
@@ -237,7 +239,7 @@ def missing_translations(en_xml, ja_xml):
 
 # PR body and release notes are posted to GitHub, so they carry no upstream-derived prose
 # (links, mentions or references there could notify upstream); details live in CHANGELOG.md.
-def pr_body(tag, version, resolved, placeholders, overridden=()):
+def pr_body(tag, version, resolved, placeholders, overridden=(), readme_changed=False):
     lines = [
         f"Automated sync of upstream release `{tag}` into the fork, staged as `{version}`.",
         "",
@@ -258,6 +260,11 @@ def pr_body(tag, version, resolved, placeholders, overridden=()):
         "Both sides changed these entries; upstream's text was taken. Re-apply a fork correction if it is still needed:",
         "",
         *([f"- `{key}`" for key in overridden] or ["- none"]),
+        "",
+        "## README",
+        "",
+        (f"Upstream's README changed. `{UPSTREAM_README}` now mirrors it; reflect the changes in the Japanese `README.md`."
+         if readme_changed else f"Upstream's README is unchanged; `README.md` and `{UPSTREAM_README}` need no update."),
         "",
     ]
     return "\n".join(lines)
@@ -304,6 +311,11 @@ def resolve(repo, tag, slug, out):
         write_text(root / path, result[0])
         overridden += [f"{path}: {name}" for name in result[1]]
 
+    upstream_readme = git(repo, "show", "MERGE_HEAD:README.md")
+    readme_changed = git(repo, "show", f"HEAD:{UPSTREAM_README}", check=False) != upstream_readme
+    write_text(root / UPSTREAM_README, upstream_readme)
+    write_text(root / "README.md", git(repo, "show", "HEAD:README.md"))
+
     for path in ("gradle.properties", "patches-list.json", SEARCH_INDEX):
         if path in conflicted:
             git(repo, "checkout", "--theirs", "--", path)
@@ -329,11 +341,11 @@ def resolve(repo, tag, slug, out):
     json.loads(catalog)
     write_text(root / CATALOG_SHA, hashlib.sha256(catalog).hexdigest())
 
-    resolved = ["CHANGELOG.md", "gradle.properties", "patches-bundle.json", CATALOG_SHA]
+    resolved = ["CHANGELOG.md", "gradle.properties", "patches-bundle.json", CATALOG_SHA, "README.md", UPSTREAM_README]
     resolved += [p for p in ("patches-list.json", SEARCH_INDEX) if p in conflicted]
     resolved += [p for p in conflicted if SETTINGS_FILE.fullmatch(p)]
     git(repo, "add", "--", *resolved)
-    write_text(out / "pr-body.md", pr_body(tag, version, resolved, placeholders, overridden))
+    write_text(out / "pr-body.md", pr_body(tag, version, resolved, placeholders, overridden, readme_changed))
     write_text(out / "release-notes.md", release_notes(tag, version))
     print(f"Resolved {tag} as {version}; {len(placeholders)} untranslated Japanese entr(y/ies).")
     return 0

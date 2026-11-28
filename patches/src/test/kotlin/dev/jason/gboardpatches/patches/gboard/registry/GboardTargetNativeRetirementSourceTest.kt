@@ -16,7 +16,7 @@ class GboardTargetNativeRetirementSourceTest {
             "patches/src/main/kotlin/dev/jason/gboardpatches/patches/gboard/registry/" +
                 "GboardPatchRegistry.kt",
         )
-        val includedPatches = readSource("README.md")
+        val includedPatches = readSource("docs/upstream-README.md")
             .substringAfter("## Included Patches")
             .substringBefore("## Install")
 
