@@ -330,7 +330,7 @@ public final class GboardExtendedDictionarySettingsFeature
     }
 
     String importDocument(Context context, byte[] data) {
-        return importDocument(context, data, ExtendedDictionaryImporter.JobProgress.only(
+        return importDocument(context, data, ExtendedDictionaryImporter.onlyPhase(
                 PhasedEta.Phase.INSERT, (done, total) -> {
                 }), new AtomicBoolean());
     }
@@ -411,7 +411,7 @@ public final class GboardExtendedDictionarySettingsFeature
     }
 
     String removeAll(Context context, ExtendedDictionaryImporter.Progress progress) {
-        return removeAll(context, ExtendedDictionaryImporter.JobProgress.only(
+        return removeAll(context, ExtendedDictionaryImporter.onlyPhase(
                 PhasedEta.Phase.DELETE, progress), false);
     }
 

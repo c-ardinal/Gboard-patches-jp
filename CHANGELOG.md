@@ -19,6 +19,7 @@
 * **Gboard:** **Web Clipboard**: fix top action button clipping in the image lightbox, corner border clipping on the drag-and-drop overlay, and potential history entry collisions when uploading multiple images at once.
 * **Gboard:** **Toolbar Editing Buttons**: redraw the Select All icon so it no longer looks identical to Gboard's built-in Resize button.
 * **Gboard:** **Frosted Glass**: fix an issue where invoking the keyboard could leave the background transparent without blur until you tap a key, by scheduling a single next-frame redraw after a new blur surface is created.
+* **Gboard:** **Extended Dictionary**: fix word list import always failing with an error right after the file is chosen.
 
 ### ✨ 新功能
 
@@ -39,6 +40,7 @@
 * **Gboard:** **Web Clipboard**：修復圖片預覽燈箱頂部按鈕裁切、拖曳上傳外框四角邊線被遮擋，以及連續上傳多張圖片時 Gboard 剪貼簿歷史項目可能互相覆蓋的問題。
 * **Gboard:** **Toolbar Editing Buttons**：重新繪製「全選」圖示，不再與 Gboard 內建的「調整大小」按鈕完全相同。
 * **Gboard:** **磨砂玻璃**：修復開啟鍵盤時背景可能只剩透明、沒有顯示模糊效果，必須按下任意按鍵後才恢復的問題；現在建立新的模糊表面後會自動補排一次下一幀重繪。
+* **Gboard:** **擴充字典**：修復選擇檔案後匯入字詞清單總是立即失敗的問題。
 
 ## [4.5.0](https://github.com/jasonwu1994/Gboard-patches/compare/v4.4.0...v4.5.0) (2026-11-26)
 
