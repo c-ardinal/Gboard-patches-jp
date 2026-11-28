@@ -8,7 +8,7 @@
 
 Gboard Patches JP は、[jasonwu1994/Gboard-patches](https://github.com/jasonwu1994/Gboard-patches) のフォークです。上流の全パッチに加え、日本語入力向けの独自機能を搭載しています。
 
-Patches 設定画面は日本語を含む 13 言語に対応しており、日本語訳は上流の翻訳を採用しています。
+Patches 設定画面の日本語訳はフォーク元のv4.5.0で正式対応されました。これに伴い本パッチが提供していた設定画面の日本語訳はv4.5.0-jpで廃止しました。
 
 ## 収録パッチ
 
