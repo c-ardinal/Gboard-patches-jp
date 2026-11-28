@@ -323,7 +323,8 @@ public final class GboardExtendedDictionarySettingsFeature
         try {
             return task.run();
         } catch (Throwable failure) {
-            Log.w(TAG, "Dictionary task failed: " + failure.getClass().getName());
+            // Keep the stack: a linkage error here is otherwise impossible to locate.
+            Log.w(TAG, "Dictionary task failed", failure);
             return failureMessage;
         }
     }
