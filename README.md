@@ -1,7 +1,7 @@
 <h1 align="center">Gboard Patches JP</h1>
 
 <p align="center">
-  全世界向けの機能改善と日本語入力向けの独自機能を搭載した、Gboard 用 Morphe パッチ集
+  全世界向けの機能改善と日本語入力向けの独自機能を搭載した、Gboard 用 Morphe パッチ
 </p>
 
 ## 概要
